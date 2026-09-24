@@ -6,11 +6,13 @@ const {spawn, execFileSync} = require('node:child_process');
 const {chromium} = require(require.resolve('playwright', {paths: [process.env.KAPERIO_NODE_MODULES || process.cwd()]}));
 const root = path.resolve(process.argv[2] || path.join(__dirname, '..'));
 const python = path.join(root, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+const executable = process.env.KAPERIO_EXECUTABLE || python;
+const entry = process.env.KAPERIO_EXECUTABLE ? [] : ['app.py'];
 const data = path.join(root, '.test-data', 'release-browser-' + process.pid);
 fs.mkdirSync(data, {recursive: true});
 const source = path.join(data, 'Sample.pdf');
 execFileSync(python, ['-c', "import sys; from pathlib import Path; sys.path.insert(0,'tests'); from test_core import make_pdf; make_pdf(Path(sys.argv[1]),'Test42')", source], {cwd: root, windowsHide: true});
-const child = spawn(python, ['app.py', '--port', '0', '--data', data, '--no-browser'], {cwd: root, windowsHide: true, stdio: 'ignore'});
+const child = spawn(executable, [...entry, '--port', '0', '--data', data, '--no-browser'], {cwd: root, windowsHide: true, stdio: 'ignore'});
 const exited = new Promise(resolve => child.once('exit', resolve));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -62,8 +64,8 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     await page.locator('#remove-confirm').click();
     await page.locator('#empty').waitFor();
     assert.ok(fs.existsSync(source));
-    const second = execFileSync(python, ['app.py', '--data', data, '--no-browser'], {cwd: root, windowsHide: true, encoding: 'utf8'});
-    assert.match(second, /already running/);
+    const second = execFileSync(executable, [...entry, '--data', data, '--no-browser'], {cwd: root, windowsHide: true, encoding: 'utf8'});
+    if (!process.env.KAPERIO_EXECUTABLE) assert.match(second, /already running/);
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({passed: true, checks: ['fresh-no-engine', 'licenses', 'unlock', 'preview', 'export', 'mobile', 'delete', 'single-instance'], screenshots: data}));
   } finally {

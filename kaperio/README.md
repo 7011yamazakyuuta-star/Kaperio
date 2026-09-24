@@ -1,8 +1,16 @@
 # Kaperio
 
-個人のファイルを開封し、パスワードなしで保存するローカルアプリです。Hashcatを復元エンジンとして使います。原本を変更せず、作業用コピーと出力を `../outputs/kaperio/` に保存します。
+個人のファイルを開封し、パスワードなしで保存するローカルアプリです。Hashcatを復元エンジンとして使います。原本は変更しません。
 
-## Windowsで初回セットアップ
+## デスクトップ版
+
+Windows EXE、macOS Apple Silicon/Intel用 `.app`、Linux x86-64実行ファイルは
+[GitHub Releases](https://github.com/7011yamazakyuuta-star/kaperio/releases)で配布します。
+ZIPまたはtar.gzを展開し、Kaperioを起動します。同梱フォルダーはすべて必要です。
+Pythonは不要、Hashcat・zip2johnは別途必要です。画面は既定ブラウザーで開きます。
+署名・公証、実機検証、保存先の詳細は[デスクトップ配布](docs/DESKTOP.md)を参照してください。
+
+## Windowsでソース版の初回セットアップ
 
 Python 3.12以降を [公式サイト](https://www.python.org/downloads/) からインストールします。
 公開ZIPを展開し、ルートの `Setup.cmd` を実行します。ネット接続が必要です。
@@ -18,7 +26,7 @@ Hashcat探索には [Hashcat公式](https://hashcat.net/hashcat/) の配布一�
 
 ワークスペース直下の `Kaperio.cmd` をダブルクリックします。ブラウザーが開きます。ファイルを追加し、既知パスワードの入力または探索を選択します。終了は画面右上の電源ボタンです。タブを閉じただけでは処理を継続します。
 
-MITライセンスのソース実行版アルファです。単体EXE、署名付きインストーラー、ストア配布版ではありません。
+MITライセンスのアルファ版です。ソース版は `../outputs/kaperio/` に作業用コピーと出力を保存します。
 
 ## 対応範囲
 

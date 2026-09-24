@@ -63,7 +63,9 @@ benefits from application overhead; it does not prove superiority over tuned Has
 
 ## Build and verify
 
-Run these commands from `kaperio` on the target OS in a clean Python 3.12 environment:
+Run these commands from `kaperio` on the target OS in a clean Python 3.13 environment.
+CI uses 3.13.15, whose native builds are available on all four targets. Local Windows
+development also tests 3.12.14. Runtime versions are listed inside each artifact.
 
 ```text
 python -m pip install -r requirements-dev.txt -c requirements-tested.txt pyinstaller==6.22.3

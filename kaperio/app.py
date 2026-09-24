@@ -34,7 +34,7 @@ MAX_UPLOAD = 100 * 1024 * 1024
 
 
 def acquire_instance(root):
-    root.mkdir(parents=True, exist_ok=True)
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
     handle = (root / 'instance.lock').open('a+b')
     handle.seek(0, 2)
     if handle.tell() == 0:
@@ -63,7 +63,7 @@ def filename(value):
 class Library:
     def __init__(self, root):
         self.root = Path(root).resolve()
-        self.root.mkdir(parents=True, exist_ok=True)
+        self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.lock = threading.RLock()
         self.jobs = {}
         self.stops = {}

@@ -9,6 +9,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import sysconfig
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,7 +36,7 @@ def collect_licenses(destination):
             shutil.copyfile(dist.locate_file(file), target)
     python_license = next((p for p in [Path(sys.base_prefix) / 'LICENSE.txt',
                           Path(sys.base_prefix) / 'LICENSE',
-                          Path(sys.base_prefix) / 'lib/python3.12/LICENSE.txt'] if p.exists()), None)
+                          Path(sysconfig.get_path('stdlib')) / 'LICENSE.txt'] if p.exists()), None)
     if python_license is None:
         raise RuntimeError('Python license missing from build runtime')
     shutil.copyfile(python_license, destination / 'Python.txt')
@@ -65,7 +66,7 @@ def main():
             command += ['--add-data', str(ROOT / source) + ':' + target]
         command += ['--add-data', str(licenses) + ':licenses/runtime']
         if sys.platform in ('win32', 'darwin'):
-            command += ['--windowed']
+            command += ['--windowed', '--icon', str(ROOT / 'static/icon-512.png')]
         if sys.platform == 'darwin':
             command += ['--osx-bundle-identifier', 'org.kaperio.desktop']
         command += [str(ROOT / 'desktop.py')]
