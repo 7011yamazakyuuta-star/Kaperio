@@ -1,0 +1,16 @@
+/outputs/
+/work/
+/kernels/
+/.agents/
+/.codex/
+**/.venv/
+**/.test-data/
+**/.tmp/
+**/__pycache__/
+*.log
+*.potfile
+*.restore
+*.hash
+*.hex
+/hiraku/vendor/john/
+/RELEASE-MANIFEST.json

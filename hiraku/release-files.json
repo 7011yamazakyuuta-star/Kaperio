@@ -1,0 +1,17 @@
+{
+  "version": "0.1.0-alpha.1",
+  "files": [
+    ".gitignore", "LICENSE", "README.md", "Setup.cmd", "Hiraku.cmd",
+    "hiraku/LICENSE", "hiraku/README.md", "hiraku/SECURITY.md", "hiraku/THIRD_PARTY.md",
+    "hiraku/app.py", "hiraku/formats.py", "hiraku/pdf_tools.py", "hiraku/recovery.py", "hiraku/converter.py",
+    "hiraku/office_render.ps1", "hiraku/launch.ps1", "hiraku/launch.sh", "hiraku/setup.ps1", "hiraku/setup.sh",
+    "hiraku/requirements.txt", "hiraku/requirements-dev.txt", "hiraku/requirements-tested.txt",
+    "hiraku/release-files.json", "hiraku/scripts/release.py",
+    "hiraku/licenses/lucide.txt", "hiraku/licenses/office2john.txt", "hiraku/vendor/office2john.py",
+    "hiraku/static/index.html", "hiraku/static/app.js", "hiraku/static/style.css", "hiraku/static/lucide.min.js",
+    "hiraku/static/manifest.webmanifest", "hiraku/static/service-worker.js", "hiraku/static/icon-192.png", "hiraku/static/icon-512.png",
+    "hiraku/docs/DISTRIBUTION.md", "hiraku/docs/research.md", "hiraku/docs/validation.md",
+    "hiraku/tests/test_core.py", "hiraku/tests/test_converter.py", "hiraku/tests/test_http.py", "hiraku/tests/test_release.py",
+    "hiraku/tests/integration.py", "hiraku/tests/recovery-controls.py", "hiraku/tests/release-smoke.cjs"
+  ]
+}

@@ -1,0 +1,9 @@
+office2john.py
+Source: https://github.com/openwall/john/blob/bleeding-jumbo/run/office2john.py
+Retrieved: 2026-09-24. The original notice is also retained in the source file.
+
+This software is Copyright (c) 2012-2013 Dhiru Kholia <dhiru at openwall.com>
+and Copyright (c) 2013-2026 magnum,
+and is hereby released to the general public under the following terms:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted.
