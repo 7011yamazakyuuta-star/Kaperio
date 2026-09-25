@@ -84,7 +84,7 @@ The final Windows EXE also passed 20 frozen HTTP checks and all 25 browser
 acceptance groups, including zero-file startup and read-only detection.
 
 The previous dashboard commit `1f8f762` passed all four native hosted builds and
-frozen tests in [run 36107254054](https://github.com/7011yamazakyuuta-star/Kaperio/actions/runs/36107254054).
+frozen tests in [run 36107254054](https://github.com/7011yamazakyuuta-star/Loxmit/actions/runs/36107254054).
 This is evidence for that commit only; the settings revision requires its own run.
 
 ## Recovery interview (0.4.0-alpha.5)

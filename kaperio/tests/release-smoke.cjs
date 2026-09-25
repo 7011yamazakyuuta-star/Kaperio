@@ -65,6 +65,13 @@ async function setupChecks(page, context, base, data) {
   await page.locator('#setup-tab-components').click();
   assert.equal(await page.locator('#install-nvrtc').isEnabled(),false);
   assert.equal(await page.locator('#consent-nvrtc').isChecked(),false);
+  fixture.components[0].delivery='bundled';fixture.components[0].eligible=true;fixture.components[0].reason='';
+  fixture.components[1].eligible=false;
+  await page.locator('#setup-tab-diagnostic').click();await page.locator('#setup-diagnose').click();
+  await page.locator('#setup-tab-components').click();
+  assert.match(await page.locator('#setup-component-list').textContent(),/同梱済み・追加通信なし/);
+  assert.equal(await page.locator('#install-hashcat').isEnabled(),false);
+  assert.equal(await page.locator('#consent-hashcat').isChecked(),false);
   for(const width of [320,390,768,1440]){
     await page.setViewportSize({width,height:900});
     for(const view of ['guide','diagnostic','components']){
@@ -82,7 +89,7 @@ async function setupChecks(page, context, base, data) {
   await page.locator('#guide-open').click();await page.locator('#setup-dialog').waitFor();
   await page.locator('#setup-close').click();await page.locator('#setup-dialog').waitFor({state:'hidden'});
   await page.setViewportSize({width:1440,height:1000});
-  console.log(JSON.stringify({setupPassed:true,checks:['first-run-guide','optional-component-consent','gpu-inventory-vs-backend','setup-download-error','setup-progress-cancel','responsive-setup','guide-reopen','no-automatic-network']}));
+  console.log(JSON.stringify({setupPassed:true,checks:['first-run-guide','optional-component-consent','gpu-inventory-vs-backend','setup-download-error','setup-progress-cancel','native-bundle-consent','responsive-setup','guide-reopen','no-automatic-network']}));
 }
 
 async function settingsChecks(page, context, base, data) {

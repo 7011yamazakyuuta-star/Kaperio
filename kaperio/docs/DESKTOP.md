@@ -176,7 +176,8 @@ repeat variation, no throttling warning and temperature below min(limit-5,75 C) 
 required. A >=10% speed gain is required to raise load; within 5% of the best score,
 prefer the lower load. Missing thermal telemetry falls back to workload 1.
 Measurements are local to a stage/job, not a portable GPU profile or a universal
-fastest guarantee. Drivers/CUDA/backends are not automatically installed or changed.
+fastest guarantee. Tuning itself does not install drivers or backends. Optional
+component activation is a separate consent-based setup operation.
 
 ## Build and verify
 
@@ -191,8 +192,23 @@ available for this version. This extra build step follows
 ```text
 python -m pip install -r requirements-dev.txt -c requirements-tested.txt pyinstaller==6.22.3
 python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+On macOS 15+ or Linux x86-64, prepare the native pack before the desktop build.
+Developer builds need a compiler and the pinned upstream checkout; end users do not.
+From the `kaperio` directory:
+
+```text
+git clone https://github.com/hashcat/hashcat.git ../.upstream-hashcat
+git -C ../.upstream-hashcat checkout c75f446c44cd3f0742035a1394416c39bee5ea8f
+python scripts/build_engine_pack.py --source ../.upstream-hashcat
+```
+
+Then build and test (omit `--native-setup` on Windows):
+
+```text
 python scripts/build_desktop.py
-python tests/frozen_smoke.py PATH_TO_BUILT_EXECUTABLE
+python tests/frozen_smoke.py PATH_TO_BUILT_EXECUTABLE --native-setup
 ```
 
 PyInstaller is not a cross-compiler. The GitHub Actions matrix builds on native runners.
@@ -203,4 +219,5 @@ Hosted runners do not prove GPU performance, Office automation, or desktop-brows
 
 Bundles include the exact installed runtime package license/notice files, PDFium native
 notices, the Python license, and an inventory. See `licenses/runtime` inside the bundle
-and Settings > licenses. External tools retain their own licenses and are not redistributed.
+and Settings > licenses. The macOS/Linux Hashcat pack retains upstream notices and
+dependency sources alongside its runtime files. Other external tools are not included.

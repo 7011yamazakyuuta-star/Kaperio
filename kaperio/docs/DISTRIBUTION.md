@@ -54,6 +54,6 @@ python kaperio/scripts/release.py verify outputs/releases/Loxmit-0.4.0-alpha.7-s
 5. 公開するアカウント・リポジトリ名・公開範囲・非公開の脆弱性連絡方法を決める。
 6. 管理者が最終確認したZIPまたはそのクリーンな展開内容だけをアップロードする。
 
-公開先は [7011yamazakyuuta-star/kaperio](https://github.com/7011yamazakyuuta-star/Kaperio) です。
-公開履歴と配布物は [Releases](https://github.com/7011yamazakyuuta-star/Kaperio/releases) で確認できます。
+公開先は [7011yamazakyuuta-star/Loxmit](https://github.com/7011yamazakyuuta-star/Loxmit) です。
+公開履歴と配布物は [Releases](https://github.com/7011yamazakyuuta-star/Loxmit/releases) で確認できます。
 ZIP作成コマンド自体はローカル処理だけです。アップロード・新しいリリースの公開は管理者が別途実行します。
