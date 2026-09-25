@@ -66,6 +66,10 @@ benefits from application overhead; it does not prove superiority over tuned Has
 Run these commands from `kaperio` on the target OS in a clean Python 3.13 environment.
 CI uses 3.13.15, whose native builds are available on all four targets. Local Windows
 development also tests 3.12.14. Runtime versions are listed inside each artifact.
+Intel macOS builds cryptography 50.0.1 with `OPENSSL_STATIC=1` and the Homebrew
+OpenSSL prefix to isolate it from Python's OpenSSL. Upstream Intel wheels are not
+available for this version. This extra build step follows
+[cryptography's macOS instructions](https://cryptography.io/en/latest/installation/#building-cryptography-on-macos).
 
 ```text
 python -m pip install -r requirements-dev.txt -c requirements-tested.txt pyinstaller==6.22.3

@@ -1,5 +1,6 @@
 """Frozen entry point; the UI stays in the user's default browser."""
 import contextlib
+import json
 import os
 import runpy
 import sys
@@ -10,6 +11,19 @@ from runtime import APP_DIR, data_directory
 
 
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == '--self-check':
+        try:
+            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+            from cryptography.hazmat.backends.openssl.backend import backend
+            from pypdf._crypt_providers._cryptography import CryptAES
+            cipher = Cipher(algorithms.AES(bytes(16)), modes.CBC(bytes(16)))
+            assert len(cipher.encryptor().update(bytes(16))) == 16
+            assert CryptAES
+            result = {'ok': True, 'openssl': backend.openssl_version_text()}
+        except Exception:
+            result = {'ok': False, 'error': traceback.format_exc()}
+        Path(sys.argv[2]).write_text(json.dumps(result), encoding='utf-8')
+        return 0 if result['ok'] else 1
     # A separate bounded helper keeps the original upstream extractor unchanged.
     if len(sys.argv) == 4 and sys.argv[1] == '--office-hash':
         source, destination = sys.argv[2:]
@@ -37,4 +51,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())
