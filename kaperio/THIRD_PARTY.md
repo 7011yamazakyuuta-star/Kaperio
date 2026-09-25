@@ -1,6 +1,6 @@
 # Third-Party Components
 
-Updated 2026-09-25 for the source and desktop alpha. This inventory is not a legal
+Updated 2026-09-26 for the source and desktop alpha. This inventory is not a legal
 opinion, a security certification, or a guarantee about future dependency versions.
 Loxmit's MIT license covers its original application code and included brand artwork.
 Third-party components retain their own licenses.
@@ -64,7 +64,7 @@ setup time from the user's package index and are not inside this source ZIP.
 all-platform lockfile. Development tests additionally use openpyxl/python-pptx.
 
 Runtime packages include pypdf, pypdfium2/PDFium, ReportLab, python-docx, Pillow,
-cryptography, msoffcrypto-tool, pyzipper and their transitive dependencies.
+cryptography, msoffcrypto-tool, pyzipper, psutil (BSD-3-Clause) and their transitive dependencies.
 Their original licenses remain applicable. Desktop bundles include these packages,
 their wheel-provided license/notice files (including PDFium native notices and Pillow
 native-library notices), Python's license, and a per-build version inventory under

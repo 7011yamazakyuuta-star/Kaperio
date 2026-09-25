@@ -1,4 +1,8 @@
-# Loxmit Desktop 0.4.0-alpha.8
+# Loxmit Desktop 0.4.0-alpha.9
+
+Document operations now use disposable, resource-limited workers. See
+[hardening boundaries](HARDENING.md); earlier native validation is not a result
+for this version. Consult the release's linked CI run for the exact build.
 
 Formerly Kaperio. The public repository is now `7011yamazakyuuta-star/Loxmit`.
 Internal source directories, legacy launchers and Hashcat session identifiers

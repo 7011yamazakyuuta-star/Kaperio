@@ -18,7 +18,7 @@ from runtime import APP_NAME, VERSION
 
 RUNTIME = ['cffi', 'charset-normalizer', 'cryptography', 'lxml', 'msoffcrypto-tool',
            'olefile', 'pillow', 'pycparser', 'pycryptodomex', 'pypdf', 'pypdfium2',
-           'python-docx', 'pyzipper', 'reportlab', 'typing_extensions']
+           'python-docx', 'pyzipper', 'reportlab', 'typing_extensions', 'psutil']
 
 
 def collect_licenses(destination):

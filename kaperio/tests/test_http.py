@@ -6,7 +6,7 @@ import threading
 import unittest
 from types import SimpleNamespace
 from pathlib import Path
-from http.server import ThreadingHTTPServer
+from local_server import LocalHTTPServer
 from unittest.mock import patch
 
 from app import Handler, Library, MAX_UPLOAD, MAX_UPLOAD_MB
@@ -16,7 +16,7 @@ class HTTPTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory()
         self.library=Library(self.tmp.name)
-        self.server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
+        self.server=LocalHTTPServer(('127.0.0.1',0),Handler)
         self.server.library=self.library
         self.server.token='test-capability'
         self.server.tls=False
@@ -68,7 +68,7 @@ class HTTPTests(unittest.TestCase):
                     self.assertEqual(path.stat().st_size, size)
                     return {'format': 'pdf', 'extension': '.pdf', 'empty_password': False}
                 # Only parsing is stubbed; HTTP transfer, disk staging and hashing are real.
-                with patch('app.inspect_file', side_effect=inspect) as inspector, patch.object(self.library, 'import_pdf', side_effect=AssertionError('HTTP must stream')):
+                with patch.object(self.library.documents, 'inspect_file', side_effect=inspect) as inspector, patch.object(self.library, 'import_pdf', side_effect=AssertionError('HTTP must stream')):
                     status, body = self.request('POST', '/api/import', source, dict(headers, **{'Content-Length': str(size)}))
                     self.assertEqual(status, 200)
                     job_id = json.loads(body)['id']

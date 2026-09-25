@@ -4,11 +4,13 @@
 
 自分のファイル、または所有者の許可があるファイルのパスワード復元と、解除済みファイルの保存を行うローカルアプリです。原本は変更しません。文書やパスワードを外部サービスへ送信しません。
 
-**0.4.0-alpha.8** / MITライセンス / 旧名称 Kaperio / Hashcat公式製品ではありません。
+**0.4.0-alpha.9** / MITライセンス / 旧名称 Kaperio / Hashcat公式製品ではありません。
 
 [ダウンロード](https://github.com/7011yamazakyuuta-star/Loxmit/releases) ·
 [使い方・対応形式](kaperio/README.md) ·
 [初回セットアップとGPU診断](kaperio/docs/SETUP.md)
+
+alpha.9ではOfficeの展開量制限、LAN接続待ち対策、解析中の操作応答を改善し、文書解析を時間・メモリー制限付きの別プロセスに分離しています。[対策の範囲と制限](kaperio/docs/HARDENING.md)。公開済みパッケージの版と各OSの検証状況は、リリース説明を確認してください。
 
 ## はじめる
 
