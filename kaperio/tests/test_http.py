@@ -237,3 +237,19 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)['code'], 0)
         self.assertEqual(run.call_args.args[0], [str(candidate.resolve()), '-I'])
+
+    def test_setup_auth_consent_and_read_only_catalog(self):
+        headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1'}
+        for route in ('/api/setup', '/setup.js'):
+            self.assertEqual(self.request('GET', route)[0], 403)
+            self.assertEqual(self.request('GET', route, headers=headers)[0], 200)
+        with patch('environment_setup.download_component') as download, patch('environment_setup.hardware_inventory') as inventory:
+            self.assertEqual(self.request('POST', '/api/setup/install', '{}', headers)[0], 400)
+            self.assertEqual(self.request('POST', '/api/setup/diagnose', '{}')[0], 403)
+            self.assertEqual(self.request('POST', '/api/setup/dismiss', '{}', headers)[0], 200)
+            self.assertTrue(json.loads(self.request('GET', '/api/setup', headers=headers)[1])['guide_seen'])
+            bad_origin = dict(headers, Origin='https://other.test')
+            self.assertEqual(self.request('POST', '/api/setup/install', '{}', bad_origin)[0], 403)
+            with patch('app.ipaddress.ip_address', return_value=SimpleNamespace(is_loopback=False)):
+                self.assertEqual(self.request('POST', '/api/setup/install', '{}', headers)[0], 400)
+            download.assert_not_called(); inventory.assert_not_called()

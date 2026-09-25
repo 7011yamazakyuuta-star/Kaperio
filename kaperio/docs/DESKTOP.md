@@ -1,4 +1,4 @@
-# Loxmit Desktop 0.4.0-alpha.6
+# Loxmit Desktop 0.4.0-alpha.7
 
 Formerly Kaperio. The repository URL, internal source directory, legacy launchers,
 and Hashcat session identifiers are intentionally unchanged. This preserves links
@@ -22,6 +22,9 @@ These are portable application bundles, not a single standalone executable and n
 Keep all files together. The app starts a local HTTP service and opens the default browser.
 Python and application libraries are included; the browser, GPU driver, Hashcat, zip2john,
 and Office/LibreOffice are not included. Known-password decryption does not require Hashcat.
+Windows x86-64 can optionally download Hashcat and, when diagnosed as missing,
+NVIDIA NVRTC through the consent-based [setup guide](SETUP.md). Drivers are never
+installed or changed. Other operating systems retain manual engine setup.
 PDF raster export and image-based Word export work without Office. Office-to-PDF needs
 an installed Microsoft Office (Windows) or LibreOffice (all supported desktop systems).
 

@@ -147,3 +147,33 @@ Local Windows verification on 2026-09-25:
 
 This revision changes presentation only. Native macOS/Linux build results must
 be checked for this revision separately; no new GPU performance claim is made.
+
+## Optional setup and GPU inventory (0.4.0-alpha.7)
+
+A dismissible, empty-library tutorial now links to GPU diagnostics and optional
+component setup. The help icon reopens it. The three views use the existing light
+dashboard, Lucide controls and responsive dialog layout, without sample files.
+Separate unchecked consent is required for each component. Progress, failure,
+cancellation and retry remain explicit; no download starts merely by opening it.
+
+Local Windows verification on 2026-09-25:
+
+- 74 unit/HTTP tests passed, including pinned consent, download integrity and
+  size limits, hostile redirects, disk failures, cancellation, concurrent work,
+  minimal runtime extraction, existing settings and child-only environment.
+- The alpha.7 EXE passed 25 frozen integration checks and 46 browser acceptance
+  groups (38 existing and eight setup groups). Setup views were checked at 320,
+  390, 768 and 1440px. Desktop/tutorial and 320px/diagnostic screenshots were
+  visually reviewed; no horizontal dialog overflow or page JS errors occurred.
+- An explicitly enabled isolated integration downloaded official Hashcat 7.1.2,
+  verified its SHA-256, extracted it, configured it, checked its version and
+  queried the NVIDIA RTX 4060 Laptop GPU and Intel UHD Graphics over OpenCL.
+  The integration caught and corrected the required Hashcat working directory.
+- Neither that integration nor the fixture tests installed NVRTC or modified
+  drivers. NVRTC extraction uses synthetic fixtures; actual NVRTC loading and
+  CUDA computation remain unverified until the user consents to that component.
+
+Automatic installation is deliberately Windows x64 only. macOS/Linux retain
+manual engine setup; inventory adapters exist but their actual hardware results
+are not established by these Windows checks. Native build results belong to the
+CI run for this commit, not earlier green runs. See `SETUP.md` for boundaries.

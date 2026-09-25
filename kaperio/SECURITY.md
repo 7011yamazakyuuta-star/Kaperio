@@ -24,7 +24,10 @@ File ownership and permission are separate from the software license.
 - Default: loopback only, random launch token, HttpOnly SameSite cookie,
   exact Host/Origin validation, POST header checks, no analytics or remote uploads.
 - Setup downloads Python packages from the user's configured package index.
-  External tools are downloaded separately from their upstream publishers.
+  Optional Windows component setup downloads pinned Hashcat/NVRTC packages only
+  after individual consent, validates SHA-256, and preserves component notices.
+  It is restricted to authenticated loopback clients and does not install drivers,
+  request elevation, or change system PATH. See [setup boundaries](docs/SETUP.md).
 - Optional private-LAN HTTPS is experimental and not phone-device validated.
   Do not expose the server to the public internet or forward router ports.
 - A launch URL grants full app access, including invoking configured local tools.

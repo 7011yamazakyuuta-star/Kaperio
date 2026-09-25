@@ -29,7 +29,8 @@ from pypdf import PdfReader
 from pdf_tools import export_pdf, preview_png
 from recovery import CREATE_FLAGS, WORD_STRATEGIES, clear_execution, has_checkpoint, run_hashcat, validate_plan, write_inputs
 from formats import SUPPORTED, contents, get_hash, inspect_file, unlock_file, office_renderer, render_office, discover_zip2john
-from runtime import APP_DIR, APP_NAME, VERSION, data_directory
+from runtime import APP_DIR, APP_NAME, VERSION, data_directory, engine_environment
+from environment_setup import SetupManager
 
 DEFAULT_DATA = data_directory()
 BUSY = {'queued', 'recovering', 'pausing', 'converting', 'unlocking'}
@@ -145,6 +146,7 @@ class Library:
                 self.stops[job['id']] = threading.Event()
             except (OSError, ValueError, KeyError):
                 continue
+        self.setup = SetupManager(self)
 
     def discover_hashcat(self, configured=True):
         config = self.root / 'settings.json'
@@ -174,10 +176,12 @@ class Library:
                     'output_dir': str(self.root), 'version': VERSION,
                     'hashcat_configured': bool(self.hashcat and self.hashcat.is_file()),
                     'zip2john_configured': bool(self.zip2john and self.zip2john.is_file()),
-                    'settings_locked': any(j['state'] in {'recovering', 'queued', 'pausing'} for j in self.jobs.values())}
+                    'settings_locked': self.setup.busy or any(j['state'] in {'recovering', 'queued', 'pausing'} for j in self.jobs.values())}
 
-    def save_settings(self, data):
+    def save_settings(self, data, _setup=False):
         with self.lock:
+            if self.setup.busy and not _setup:
+                raise ValueError('診断・導入が終わってから設定を変更してください。')
             if any(j['state'] in {'recovering', 'queued', 'pausing'} for j in self.jobs.values()):
                 raise ValueError('探索を停止してから設定を変更してください。')
             candidate = tool_path(data.get('hashcat', self.hashcat), 'hashcat')
@@ -349,6 +353,8 @@ class Library:
 
     def start_recovery(self, job_id, data, resume=False):
         with self.lock:
+            if self.setup.busy:
+                raise ValueError('診断・導入が終わってから探索を開始してください。')
             job = self.jobs[job_id]
             if job['state'] in BUSY or job.get('unlocked'):
                 raise ValueError('このファイルでは探索を開始できません。')
@@ -469,6 +475,7 @@ class Library:
             self.update(job_id, state='error', message='書き出しエラー: ' + str(exc))
 
     def close(self):
+        self.setup.close()
         for event in self.stops.values():
             event.set()
         self.recovery_pool.shutdown(wait=True)
@@ -562,6 +569,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_data(200, {'jobs': self.library.snapshot()})
         elif path == '/api/settings':
             self.send_data(200, dict(self.library.settings_snapshot(), connection=self.server.origin, tls=self.server.tls))
+        elif path == '/api/setup':
+            self.send_data(200, self.library.setup.snapshot())
         elif path == '/api/licenses':
             texts = ['Loxmit third-party notices\n' + (APP_DIR / 'THIRD_PARTY.md').read_text(encoding='utf-8'),
                      'Loxmit license\n' + (APP_DIR / 'LICENSE').read_text(encoding='utf-8')]
@@ -598,7 +607,7 @@ class Handler(BaseHTTPRequestHandler):
             static = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/lucide.js': 'lucide.min.js',
                       '/manifest.webmanifest': 'manifest.webmanifest', '/service-worker.js': 'service-worker.js',
                       '/icon-192.png': 'icon-192.png', '/icon-512.png': 'icon-512.png',
-                      '/icon-64.png': 'icon-64.png', '/favicon.ico': 'favicon.ico'}
+                      '/icon-64.png': 'icon-64.png', '/favicon.ico': 'favicon.ico', '/setup.js': 'setup.js'}
             if path not in static:
                 self.send_data(404, {'error': '見つかりません。'})
                 return
@@ -646,6 +655,22 @@ class Handler(BaseHTTPRequestHandler):
             self.send_data(500, {'error': '処理に失敗しました: ' + str(exc)})
 
     def post_route(self, data):
+        if self.path.startswith('/api/setup/'):
+            if not ipaddress.ip_address(self.client_address[0]).is_loopback:
+                raise ValueError('セットアップはこのPCから実行してください。')
+            action = self.path.rsplit('/', 1)[-1]
+            if action == 'diagnose':
+                self.library.setup.diagnose()
+            elif action == 'install':
+                self.library.setup.start(data)
+            elif action == 'cancel':
+                self.library.setup.cancel()
+            elif action == 'dismiss':
+                self.library.setup.dismiss()
+            else:
+                raise ValueError('操作が不正です。')
+            self.send_data(200, self.library.setup.snapshot())
+            return
         if self.path == '/api/recovery/estimate':
             with self.library.lock:
                 mode = self.library.jobs[data['job_id']]['info'].get('mode') if data.get('job_id') else None
@@ -667,7 +692,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.library.settings_snapshot()['settings_locked']:
                 raise ValueError('探索を停止してからGPUを確認してください。')
             result = subprocess.run([str(self.library.hashcat), '-I'], cwd=self.library.hashcat.parent,
-                                    capture_output=True, timeout=45, creationflags=CREATE_FLAGS)
+                                    capture_output=True, timeout=45, creationflags=CREATE_FLAGS,
+                                    env=engine_environment(self.library.root))
             self.send_data(200, {'text': (result.stdout + result.stderr).decode('utf-8', errors='replace'), 'code': result.returncode})
             return
         elif self.path == '/api/shutdown':

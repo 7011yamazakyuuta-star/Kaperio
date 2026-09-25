@@ -5,13 +5,14 @@
   <title>Loxmit | ファイル復元</title><meta name="theme-color" content="#ffffff">
   <link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/icon-192.png"><link rel="stylesheet" href="/style.css">
-  <script defer src="/lucide.js"></script><script defer src="/app.js"></script>
+  <script defer src="/lucide.js"></script><script defer src="/app.js"></script><script defer src="/setup.js"></script>
 </head>
 <body>
 <header class="topbar">
   <a class="brand" href="/" aria-label="Loxmit ホーム"><img src="/icon-64.png" width="44" height="44" alt=""><span>Loxmit</span></a>
   <span class="local-status" id="connection-status"><i data-lucide="monitor"></i><span>ローカル動作</span></span>
   <div class="top-actions">
+    <button class="icon quiet" id="guide-open" title="はじめに・GPU診断" aria-label="はじめに・GPU診断"><i data-lucide="circle-help"></i></button>
     <button class="quiet" id="settings-open" title="設定" aria-label="設定"><i data-lucide="settings"></i><span>設定</span></button>
     <button class="icon quiet" id="shutdown" title="アプリを終了" aria-label="アプリを終了"><i data-lucide="power"></i></button>
   </div>
@@ -144,6 +145,7 @@
   </section>
   <section class="settings-section">
     <div class="settings-heading"><h3>探索エンジン</h3><button type="button" id="detect-tools"><i data-lucide="search"></i>自動検出</button></div>
+    <button type="button" id="setup-open" class="quiet"><i data-lucide="package-plus"></i>セットアップとGPU診断</button>
     <div class="engine-state"><strong>Hashcat</strong><span id="hashcat-status" class="muted">未設定</span><a href="https://hashcat.net/hashcat/" target="_blank" rel="noopener noreferrer">公式ダウンロード<i data-lucide="external-link"></i></a></div>
     <details id="engine-paths"><summary><i data-lucide="chevron-right"></i>実行ファイルの場所を指定</summary>
       <label for="hashcat-path">Hashcat の実行ファイル</label><input id="hashcat-path" spellcheck="false" autocomplete="off" placeholder="hashcat.exe / hashcat / hashcat.bin" aria-describedby="hashcat-error"><p id="hashcat-error" class="field-error" hidden></p>
@@ -156,6 +158,41 @@
   <section class="settings-section settings-storage"><h3>ライブラリの保存先</h3><div id="output-path" class="path"></div></section>
   <div class="settings-footer"><a href="/api/licenses" target="_blank" rel="noopener">ライセンス</a><span id="settings-save-state" class="muted" aria-live="polite"></span><button type="submit" class="primary" id="settings-save"><i data-lucide="save"></i>保存して閉じる</button></div>
 </form></dialog>
+<dialog id="setup-dialog" aria-labelledby="setup-title">
+  <div class="dialog-heading"><div class="setup-brand"><img src="/icon-64.png" width="40" height="40" alt=""><h2 id="setup-title">はじめに</h2></div><button type="button" class="icon quiet" id="setup-close" title="閉じる" aria-label="ガイドを閉じる"><i data-lucide="x"></i></button></div>
+  <div class="tabs setup-tabs" role="tablist" aria-label="セットアップ">
+    <button type="button" id="setup-tab-guide" role="tab" aria-controls="setup-guide" aria-selected="true">使い方</button>
+    <button type="button" id="setup-tab-diagnostic" role="tab" aria-controls="setup-diagnostic" aria-selected="false" tabindex="-1">GPU診断</button>
+    <button type="button" id="setup-tab-components" role="tab" aria-controls="setup-components" aria-selected="false" tabindex="-1">追加部品</button>
+  </div>
+  <section id="setup-guide" class="setup-panel" role="tabpanel" aria-labelledby="setup-tab-guide">
+    <ol class="guide-steps">
+      <li><i data-lucide="file-plus-2"></i><div><h3>ファイルを追加</h3><p>ご自身のファイル、または許可を得たファイルを選択します。追加元の原本は変更しません。</p></div></li>
+      <li><i data-lucide="search"></i><div><h3>覚えていることから探す</h3><p>語句や数字などの手掛かりを入力します。分からない項目は空欄で進められます。パスワードが分かる場合は「パスワードが分かる」を選びます。</p></div></li>
+      <li><i data-lucide="download"></i><div><h3>結果を保存</h3><p>解除できたらパスワードをコピーし、「パスワードなしで保存」で別ファイルに保存します。アプリ終了後はパスワード表示が消えます。</p></div></li>
+    </ol>
+    <p class="setup-note">復元を保証するものではありません。手掛かりが少ない場合や長いパスワードは、時間内に見つからないことがあります。</p>
+    <button type="button" class="primary" id="guide-next"><i data-lucide="arrow-right"></i>GPU・実行環境を確認</button>
+  </section>
+  <section id="setup-diagnostic" class="setup-panel" role="tabpanel" aria-labelledby="setup-tab-diagnostic" hidden>
+    <div class="settings-heading"><h3>このPCの実行環境</h3><button type="button" id="setup-diagnose"><i data-lucide="scan-line"></i>診断する</button></div>
+    <p class="setup-note">ドライバーの変更、ファイルの解析、負荷テストは行いません。</p>
+    <div id="setup-diagnostic-result" aria-live="polite"><p class="muted">未診断</p></div>
+    <details id="setup-diagnostic-details" hidden><summary><i data-lucide="chevron-right"></i>Hashcatの診断ログ</summary><pre id="setup-diagnostic-log"></pre></details>
+    <button type="button" id="diagnostic-next"><i data-lucide="package-plus"></i>必要な追加部品を確認</button>
+  </section>
+  <section id="setup-components" class="setup-panel" role="tabpanel" aria-labelledby="setup-tab-components" hidden>
+    <h3>必要なものだけ導入</h3>
+    <p class="setup-note">ドライバー、CUDA開発ツール一式、John、Officeは導入しません。既存のツールとシステム設定は変更しません。</p>
+    <div id="setup-component-list"></div>
+    <h3 class="setup-location-heading">保存先</h3><div id="setup-destination" class="path"></div>
+    <div id="setup-progress" hidden><progress id="setup-download-progress" max="100" value="0" aria-label="部品のダウンロード"></progress><span id="setup-progress-text" role="status"></span><button type="button" id="setup-cancel"><i data-lucide="square"></i>導入を中止</button></div>
+    <p id="setup-operation-message" role="status"></p>
+    <button type="button" id="setup-check-again" hidden><i data-lucide="scan-line"></i>GPU診断へ</button>
+  </section>
+  <p id="setup-error" class="field-error" role="alert" hidden></p>
+  <div class="setup-footer"><span class="muted">文書・パスワードは外部に送信しません</span><button type="button" id="setup-finish">閉じて作業する</button></div>
+</dialog>
 <dialog id="remove-dialog"><h2>ライブラリから削除</h2><p id="remove-name"></p><p class="muted">作業用コピーと書き出したファイルを削除します。追加元の原本は残ります。</p><div class="inline-actions"><button id="remove-cancel">キャンセル</button><button class="danger-solid" id="remove-confirm"><i data-lucide="trash-2"></i>削除</button></div></dialog>
 <div id="toast" role="alert" hidden></div><div id="drop-overlay" hidden>ファイルを追加</div>
 </body>

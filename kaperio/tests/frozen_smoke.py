@@ -96,6 +96,18 @@ def main():
 
             assert request('/api/jobs', authenticated=False)[0] == 403
             assert b'Loxmit' in request('/')[1]
+            setup = api('/api/setup')
+            assert not setup['guide_seen'] and setup['operation']['phase'] == 'idle'
+            assert {c['id'] for c in setup['components']} == {'hashcat', 'nvrtc'}
+            assert not (data / 'tools').exists()
+            checks.append('setup-catalog-no-install')
+            assert request('/api/setup/install', {'component': 'hashcat', 'consent': False, 'catalog_revision': setup['catalog_revision']})[0] == 400
+            assert request('/api/setup', authenticated=False)[0] == 403
+            assert request('/setup.js')[0] == 200
+            checks.append('setup-consent-auth')
+            api('/api/setup/dismiss', {})
+            assert api('/api/setup')['guide_seen']
+            checks.append('setup-guide-state')
             for asset in ('icon-64.png', 'icon-192.png', 'icon-512.png', 'favicon.ico'):
                 status, content = request('/' + asset)
                 assert status == 200 and len(content) > 100, asset

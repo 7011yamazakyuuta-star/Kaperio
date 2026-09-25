@@ -39,6 +39,12 @@ The exact included file contents are identified by the release SHA-256 manifest.
   Office-to-PDF conversion. Office requires the user's own valid license.
 - GPU drivers and SDKs: provided by hardware vendors, not bundled.
 
+Windows users can opt into downloading Hashcat 7.1.2 and optional NVIDIA NVRTC
+12.9.86 through the setup guide. These binaries are still not in the application
+bundle. Hashcat's upstream license notices are retained; NVRTC has NVIDIA's own
+EULA, shown before consent and retained with the downloaded DLLs. The app's MIT
+license does not cover NVIDIA components. See [setup scope](docs/SETUP.md).
+
 Invoking a separate CLI is not a blanket exemption from license obligations.
 Do not add these binaries to a release without reviewing their complete terms.
 Loxmit is not an official or endorsed Hashcat, Openwall or Microsoft product.

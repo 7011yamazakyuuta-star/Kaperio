@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from candidates import guided_candidates, interview_candidates
+from runtime import engine_environment
 
 CHARSETS = {'lower': ('?l', 26), 'upper': ('?u', 26), 'digits': ('?d', 10), 'symbols': ('?s', 33)}
 CREATE_FLAGS = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
@@ -248,7 +249,7 @@ def run_stage(executable, folder, mode, plan, stop, update, resume=False, second
     started = time.monotonic()
     process = subprocess.Popen(args, cwd=executable.parent, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                               creationflags=CREATE_FLAGS)
+                               creationflags=CREATE_FLAGS, env=engine_environment(folder.parent))
     errors, length_limits = [], []
     maximum = candidate_max_bytes(plan)
     def consume():

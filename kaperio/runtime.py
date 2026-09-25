@@ -3,9 +3,21 @@ import os
 import sys
 from pathlib import Path
 
-VERSION = '0.4.0-alpha.6'
+VERSION = '0.4.0-alpha.7'
 APP_NAME = 'Loxmit'
 APP_DIR = Path(__file__).resolve().parent
+
+
+def engine_environment(root):
+    env = os.environ.copy()
+    if sys.platform == 'win32':
+        root = Path(root).resolve()
+        component = root / 'tools' / 'nvrtc-12.9.86'
+        folder = component / 'bin'
+        if (component / 'loxmit-receipt.json').is_file() and folder.resolve().is_relative_to(root):
+            if all((folder / name).is_file() for name in ('nvrtc64_120_0.dll', 'nvrtc-builtins64_129.dll')):
+                env['PATH'] = str(folder) + os.pathsep + env.get('PATH', '')
+    return env
 
 
 def data_directory():

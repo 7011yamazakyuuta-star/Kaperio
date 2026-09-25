@@ -16,6 +16,75 @@ const child = spawn(executable, [...entry, '--port', '0', '--data', data, '--no-
 const exited = new Promise(resolve => child.once('exit', resolve));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+async function setupChecks(page, context, base, data) {
+  await page.locator('#setup-dialog').waitFor({state:'visible'});
+  assert.equal(await page.locator('.file-item').count(),0);
+  await page.locator('#guide-next').click();
+  assert.ok(await page.locator('#setup-diagnostic-result').filter({hasText:'未診断'}).isVisible());
+  const original=await (await context.request.get(base+'/api/setup')).json();
+  const fixture=JSON.parse(JSON.stringify(original));fixture.locked=false;
+  fixture.components[0].eligible=true;fixture.components[0].reason='';fixture.components[1].eligible=false;
+  fixture.report={hardware:{status:'detected',devices:[{name:'Synthetic NVIDIA GPU',vendor:'NVIDIA',driver:'fixture'}]},backend:{status:'missing',devices:[],compute_tested:false,nvrtc_missing:false,text:''}};
+  let diagnoses=0,installs=0;
+  await page.route('**/api/setup',route=>route.fulfill({json:fixture}));
+  await page.route('**/api/setup/diagnose',route=>{diagnoses++;return route.fulfill({json:fixture})});
+  await page.route('**/api/setup/install',route=>{
+    const request=route.request().postDataJSON();assert.equal(request.component,'hashcat');assert.equal(request.consent,true);assert.equal(request.catalog_revision,fixture.catalog_revision);
+    installs++;fixture.operation=installs===1?{phase:'error',message:'Synthetic download failure',received:0,total:19682772}:{phase:'downloading',message:'Synthetic download',received:5000000,total:20000000};
+    if(installs>1){fixture.locked=true;fixture.components[0].eligible=false}
+    return route.fulfill({json:fixture});
+  });
+  await page.route('**/api/setup/cancel',route=>{
+    fixture.operation={phase:'cancelled',message:'Synthetic cancelled',received:5000000,total:20000000};
+    fixture.locked=false;fixture.components[0].eligible=true;return route.fulfill({json:fixture});
+  });
+  assert.equal(diagnoses,0);assert.equal(installs,0);
+  await page.locator('#setup-diagnose').click();
+  await page.locator('#setup-diagnostic-result').filter({hasText:'Synthetic NVIDIA GPU'}).waitFor();
+  assert.match(await page.locator('#setup-diagnostic-result').textContent(),/未検証/);
+  assert.equal(diagnoses,1);
+  await page.locator('#diagnostic-next').click();
+  assert.equal(await page.locator('#install-hashcat').isEnabled(),false);
+  assert.equal(await page.locator('#consent-nvrtc').count(),0);
+  await page.locator('#consent-hashcat').check();
+  await page.locator('#install-hashcat').click();
+  await page.locator('#setup-operation-message').filter({hasText:'Synthetic download failure'}).waitFor();
+  assert.equal(installs,1);
+  assert.equal(await page.locator('#consent-hashcat').isChecked(),false);
+  assert.equal(await page.locator('#install-hashcat').isEnabled(),false);
+  await page.locator('#consent-hashcat').check();await page.locator('#install-hashcat').click();
+  await page.locator('#setup-progress').waitFor();
+  assert.equal(await page.locator('#setup-download-progress').evaluate(n=>n.value),25);
+  await page.locator('#setup-cancel').click();
+  await page.locator('#setup-operation-message').filter({hasText:'Synthetic cancelled'}).waitFor();
+  assert.equal(await page.locator('#setup-progress').isVisible(),false);
+  fixture.report.backend={status:'recognized',devices:[{name:'Synthetic NVIDIA GPU',backend:'OpenCL',type:'GPU'}],compute_tested:false,nvrtc_missing:true,text:'Synthetic diagnostic log'};
+  fixture.components[0].eligible=false;fixture.components[0].reason='設定済み';fixture.components[1].eligible=true;fixture.components[1].reason='';
+  await page.locator('#setup-tab-diagnostic').click();await page.locator('#setup-diagnose').click();
+  await page.locator('#setup-diagnostic-result').filter({hasText:'NVRTC'}).waitFor();
+  await page.locator('#setup-tab-components').click();
+  assert.equal(await page.locator('#install-nvrtc').isEnabled(),false);
+  assert.equal(await page.locator('#consent-nvrtc').isChecked(),false);
+  for(const width of [320,390,768,1440]){
+    await page.setViewportSize({width,height:900});
+    for(const view of ['guide','diagnostic','components']){
+      await page.locator('#setup-tab-'+view).click();
+      assert.ok(await page.locator('#setup-dialog').evaluate(n=>n.scrollWidth<=n.clientWidth),'setup overflow '+width+' '+view);
+      await page.screenshot({path:path.join(data,'setup-'+view+'-'+width+'.png'),fullPage:true});
+    }
+  }
+  await page.locator('#setup-finish').click();
+  await page.locator('#setup-dialog').waitFor({state:'hidden'});
+  await page.unroute('**/api/setup');await page.unroute('**/api/setup/diagnose');await page.unroute('**/api/setup/install');await page.unroute('**/api/setup/cancel');
+  assert.equal((await (await context.request.get(base+'/api/setup')).json()).guide_seen,true);
+  await page.reload();await page.locator('#empty').waitFor();
+  assert.equal(await page.locator('#setup-dialog').isVisible(),false);
+  await page.locator('#guide-open').click();await page.locator('#setup-dialog').waitFor();
+  await page.locator('#setup-close').click();await page.locator('#setup-dialog').waitFor({state:'hidden'});
+  await page.setViewportSize({width:1440,height:1000});
+  console.log(JSON.stringify({setupPassed:true,checks:['first-run-guide','optional-component-consent','gpu-inventory-vs-backend','setup-download-error','setup-progress-cancel','responsive-setup','guide-reopen','no-automatic-network']}));
+}
+
 async function settingsChecks(page, context, base, data) {
   assert.equal(await page.locator('#file-count').textContent(), '0');
   assert.equal(await page.locator('.file-item').count(), 0);
@@ -238,6 +307,7 @@ async function passwordResultChecks(page, context, base, data) {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(launch.url);
+    await setupChecks(page,context,base,data);
     await page.locator('#empty').waitFor();
     await settingsChecks(page,context,base,data);
     await page.locator('#settings-open').click();
