@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 from pypdf import PdfReader
 
 from pdf_tools import export_pdf, preview_png
-from recovery import CREATE_FLAGS, run_hashcat, validate_plan, write_inputs
+from recovery import CREATE_FLAGS, WORD_STRATEGIES, run_hashcat, validate_plan, write_inputs
 from formats import SUPPORTED, contents, get_hash, inspect_file, unlock_file, office_renderer, render_office, discover_zip2john
 from runtime import APP_DIR, VERSION, data_directory
 
@@ -218,7 +218,7 @@ class Library:
                 if not job.get('plan'):
                     raise ValueError('再開できる探索がありません。')
                 plan = dict(job['plan'])
-                if plan['strategy'] == 'dictionary':
+                if plan['strategy'] in WORD_STRATEGIES:
                     plan['words'] = [bytes.fromhex(s).decode('utf-8') for s in (folder / 'candidates.hex').read_text().splitlines()]
             else:
                 plan = validate_plan(data)

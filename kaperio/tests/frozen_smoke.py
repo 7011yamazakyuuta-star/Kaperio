@@ -117,6 +117,13 @@ def main():
                 output = next(o for o in value['outputs'] if o['kind'] == kind)
                 assert request('/api/jobs/' + jid + '/download/' + output['file'])[0] == 200
             checks += ['pdf-aes256-unlock', 'pdfium-preview', 'four-export-formats']
+            for algorithm in ('RC4-40', 'AES-128', 'AES-256-R5'):
+                variant = root / (algorithm + '.pdf')
+                make_pdf(variant, 'Test42', algorithm)
+                vid = api('/api/import', variant.read_bytes(), variant.name)['id']
+                api('/api/jobs/' + vid + '/unlock', {'password': 'Test42'})
+                assert not PdfReader(data / vid / 'unlocked.pdf').is_encrypted
+                checks.append('frozen-pdf-' + algorithm)
             if args.hashcat:
                 gpu_pdf = root / 'gpu.pdf'
                 make_pdf(gpu_pdf, 'Test42')
@@ -139,8 +146,14 @@ def main():
                 oid = api('/api/import', encrypted.getvalue(), 'encrypted' + extension)['id']
                 assert job(oid)['info']['mode'] == 9600, job(oid)['info']
                 if args.hashcat:
-                    api('/api/jobs/' + oid + '/recover', {'strategy': 'dictionary', 'words': 'wrong\nTest42',
-                                                        'devices': '1', 'minutes': 1})
+                    compound = {
+                        '.docx': {'strategy': 'dictionary_rules', 'words': 'wrong\ntest4'},
+                        '.xlsx': {'strategy': 'hybrid_suffix', 'words': 'wrong\nTest',
+                                  'min': 2, 'max': 2, 'charsets': ['digits']},
+                        '.pptx': {'strategy': 'hybrid_prefix', 'words': 'wrong\nest42',
+                                  'min': 1, 'max': 1, 'charsets': ['upper']},
+                    }[extension]
+                    api('/api/jobs/' + oid + '/recover', dict(compound, devices='1', minutes=1))
                     wait_export(oid)
                     checks.append('frozen-hashcat-' + extension[1:])
                 else:

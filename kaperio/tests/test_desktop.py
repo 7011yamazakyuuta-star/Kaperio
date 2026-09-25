@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import runtime
-from recovery import hashcat_arguments, optimized_kernel, validate_plan
+from recovery import RULES, candidate_max_bytes, hashcat_arguments, optimized_kernel, validate_plan, write_inputs
 
 
 class DesktopTests(unittest.TestCase):
@@ -41,3 +41,49 @@ class DesktopTests(unittest.TestCase):
             self.assertNotIn('-O', hashcat_arguments(exe, folder, 10400, plan))
             (folder / 'session.restore').touch()
             self.assertEqual(hashcat_arguments(exe, folder, 10400, plan, True)[-1], '--restore')
+
+    def test_hybrids_and_rules_preserve_candidates(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            for strategy, attack in [('hybrid_suffix', '6'), ('hybrid_prefix', '7')]:
+                plan = validate_plan({'strategy': strategy, 'words': 'one\ntwo', 'min': 1, 'max': 2,
+                                      'charsets': ['digits'], 'prefix': 'ignored'})
+                self.assertEqual(plan['candidates'], '220')
+                self.assertEqual(candidate_max_bytes(plan), 5)
+                args = write_inputs(folder, plan)
+                self.assertEqual(args[:3], ['-a', attack, '--hex-wordlist'])
+                self.assertEqual((folder / 'search.hcmask').read_text(), '?d,?1\n?d,?1?1\n')
+                expected_first = folder / ('candidates.hex' if attack == '6' else 'search.hcmask')
+                self.assertEqual(args[3], str(expected_first))
+                plan['words'] = ['x' * 15]
+                self.assertFalse(optimized_kernel(10700, plan))
+            plan = validate_plan({'strategy': 'dictionary_rules', 'words': 'word'})
+            self.assertEqual(plan['candidates'], str(len(RULES)))
+            self.assertEqual(candidate_max_bytes(plan), 5)
+            self.assertIn('-r', write_inputs(folder, plan))
+            self.assertIn('c$9', (folder / 'variants.rule').read_text().splitlines())
+            for strategy in ('dictionary_rules', 'hybrid_prefix', 'hybrid_suffix'):
+                with self.assertRaises(ValueError):
+                    validate_plan({'strategy': strategy, 'words': 'x' * 127})
+
+    def test_compound_resume_restores_private_wordlist(self):
+        from app import Library
+        from test_core import make_pdf
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'test.pdf'
+            make_pdf(source, 'secret')
+            library = Library(root / 'library')
+            library.hashcat = root / 'hashcat'
+            try:
+                jid = library.import_pdf(source.name, source.read_bytes())
+                with patch.object(library.recovery_pool, 'submit') as submit:
+                    for strategy in ('dictionary_rules', 'hybrid_prefix', 'hybrid_suffix'):
+                        library.start_recovery(jid, {'strategy': strategy, 'words': 'private-word'})
+                        self.assertNotIn('words', library.jobs[jid]['plan'])
+                        library.update(jid, state='paused')
+                        library.start_recovery(jid, {}, resume=True)
+                        self.assertEqual(submit.call_args.args[3]['words'], ['private-word'])
+                        library.update(jid, state='paused')
+            finally:
+                library.close()

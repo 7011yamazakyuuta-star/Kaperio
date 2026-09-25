@@ -1,0 +1,593 @@
+{
+  "engine": "v7.1.2",
+  "engine_sha256": "eee510ef3450f6adc850ebaf3160c548d7f14c8d774679081142907aa3d5267f",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "devices": "1",
+  "sample_seconds": 8,
+  "warmup_seconds_discarded": 3,
+  "workload": 1,
+  "temperature_abort": 80,
+  "mask": "?l x 8",
+  "candidates": 208827064576,
+  "runs": [
+    {
+      "mode": 10400,
+      "profile": "cli-pure",
+      "repeat": 1,
+      "median_hps": 515451700,
+      "max_temperature": 65,
+      "samples": 5,
+      "wall_seconds": 12.89,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10400,
+      "profile": "cli-auto",
+      "repeat": 1,
+      "median_hps": 264814681,
+      "max_temperature": 66,
+      "samples": 5,
+      "wall_seconds": 11.203,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10400,
+      "profile": "kaperio-auto",
+      "repeat": 1,
+      "median_hps": 468312921,
+      "max_temperature": 67,
+      "samples": 5,
+      "wall_seconds": 11.594,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10400,
+      "profile": "cli-auto",
+      "repeat": 2,
+      "median_hps": 407701138,
+      "max_temperature": 67,
+      "samples": 5,
+      "wall_seconds": 11.703,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10400,
+      "profile": "kaperio-auto",
+      "repeat": 2,
+      "median_hps": 515543167,
+      "max_temperature": 69,
+      "samples": 5,
+      "wall_seconds": 11.688,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10400,
+      "profile": "cli-pure",
+      "repeat": 2,
+      "median_hps": 486831765,
+      "max_temperature": 70,
+      "samples": 5,
+      "wall_seconds": 11.703,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10400,
+      "profile": "kaperio-auto",
+      "repeat": 3,
+      "median_hps": 502880274.5,
+      "max_temperature": 70,
+      "samples": 6,
+      "wall_seconds": 11.734,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10400,
+      "profile": "cli-pure",
+      "repeat": 3,
+      "median_hps": 480998575,
+      "max_temperature": 69,
+      "samples": 5,
+      "wall_seconds": 11.594,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10400,
+      "profile": "cli-auto",
+      "repeat": 3,
+      "median_hps": 493909278,
+      "max_temperature": 69,
+      "samples": 5,
+      "wall_seconds": 11.469,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "profile": "cli-pure",
+      "repeat": 1,
+      "median_hps": 9179,
+      "max_temperature": 67,
+      "samples": 5,
+      "wall_seconds": 12.313,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "profile": "cli-auto",
+      "repeat": 1,
+      "median_hps": 52487,
+      "max_temperature": 67,
+      "samples": 5,
+      "wall_seconds": 11.891,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "profile": "kaperio-auto",
+      "repeat": 1,
+      "median_hps": 58698,
+      "max_temperature": 71,
+      "samples": 5,
+      "wall_seconds": 11.735,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "profile": "cli-auto",
+      "repeat": 2,
+      "median_hps": 58611,
+      "max_temperature": 71,
+      "samples": 5,
+      "wall_seconds": 11.671,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "profile": "kaperio-auto",
+      "repeat": 2,
+      "median_hps": 58893.5,
+      "max_temperature": 70,
+      "samples": 6,
+      "wall_seconds": 11.828,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "profile": "cli-pure",
+      "repeat": 2,
+      "median_hps": 9244,
+      "max_temperature": 67,
+      "samples": 5,
+      "wall_seconds": 11.828,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "profile": "kaperio-auto",
+      "repeat": 3,
+      "median_hps": 54380,
+      "max_temperature": 69,
+      "samples": 5,
+      "wall_seconds": 11.906,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "profile": "cli-pure",
+      "repeat": 3,
+      "median_hps": 9167,
+      "max_temperature": 66,
+      "samples": 5,
+      "wall_seconds": 11.828,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "profile": "cli-auto",
+      "repeat": 3,
+      "median_hps": 59286,
+      "max_temperature": 71,
+      "samples": 5,
+      "wall_seconds": 11.828,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 9600,
+      "profile": "cli-pure",
+      "repeat": 1,
+      "median_hps": 9147,
+      "max_temperature": 72,
+      "samples": 5,
+      "wall_seconds": 12.469,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 9600,
+      "profile": "cli-auto",
+      "repeat": 1,
+      "median_hps": 8345,
+      "max_temperature": 65,
+      "samples": 5,
+      "wall_seconds": 12.39,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 9600,
+      "profile": "kaperio-auto",
+      "repeat": 1,
+      "median_hps": 9202.0,
+      "max_temperature": 71,
+      "samples": 6,
+      "wall_seconds": 12.453,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 9600,
+      "profile": "cli-auto",
+      "repeat": 2,
+      "median_hps": 8868,
+      "max_temperature": 73,
+      "samples": 5,
+      "wall_seconds": 12.047,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 9600,
+      "profile": "kaperio-auto",
+      "repeat": 2,
+      "median_hps": 9069,
+      "max_temperature": 71,
+      "samples": 5,
+      "wall_seconds": 12.219,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 9600,
+      "profile": "cli-pure",
+      "repeat": 2,
+      "median_hps": 9018,
+      "max_temperature": 74,
+      "samples": 5,
+      "wall_seconds": 12.343,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 9600,
+      "profile": "kaperio-auto",
+      "repeat": 3,
+      "median_hps": 7695,
+      "max_temperature": 66,
+      "samples": 5,
+      "wall_seconds": 12.547,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 9600,
+      "profile": "cli-pure",
+      "repeat": 3,
+      "median_hps": 8359,
+      "max_temperature": 70,
+      "samples": 5,
+      "wall_seconds": 12.156,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 9600,
+      "profile": "cli-auto",
+      "repeat": 3,
+      "median_hps": 8551.0,
+      "max_temperature": 70,
+      "samples": 6,
+      "wall_seconds": 12.219,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 13600,
+      "profile": "cli-pure",
+      "repeat": 1,
+      "median_hps": 592449,
+      "max_temperature": 62,
+      "samples": 5,
+      "wall_seconds": 11.875,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 13600,
+      "profile": "cli-auto",
+      "repeat": 1,
+      "median_hps": 625619,
+      "max_temperature": 61,
+      "samples": 5,
+      "wall_seconds": 11.5,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 13600,
+      "profile": "kaperio-auto",
+      "repeat": 1,
+      "median_hps": 608732,
+      "max_temperature": 61,
+      "samples": 5,
+      "wall_seconds": 11.718,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 13600,
+      "profile": "cli-auto",
+      "repeat": 2,
+      "median_hps": 623557,
+      "max_temperature": 61,
+      "samples": 5,
+      "wall_seconds": 11.61,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 13600,
+      "profile": "kaperio-auto",
+      "repeat": 2,
+      "median_hps": 615454,
+      "max_temperature": 61,
+      "samples": 5,
+      "wall_seconds": 11.75,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 13600,
+      "profile": "cli-pure",
+      "repeat": 2,
+      "median_hps": 616891,
+      "max_temperature": 61,
+      "samples": 5,
+      "wall_seconds": 11.89,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 13600,
+      "profile": "kaperio-auto",
+      "repeat": 3,
+      "median_hps": 605440,
+      "max_temperature": 61,
+      "samples": 5,
+      "wall_seconds": 11.938,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 13600,
+      "profile": "cli-pure",
+      "repeat": 3,
+      "median_hps": 611632,
+      "max_temperature": 61,
+      "samples": 5,
+      "wall_seconds": 12.032,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 13600,
+      "profile": "cli-auto",
+      "repeat": 3,
+      "median_hps": 608990,
+      "max_temperature": 61,
+      "samples": 5,
+      "wall_seconds": 11.813,
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    }
+  ],
+  "limitations": [
+    "One machine; OpenCL/CUDA and thermal conditions are machine-dependent.",
+    "Same upstream kernels; this does not establish superiority over Hashcat.",
+    "CLI and wrapper throughput, not success rate on real-world passwords."
+  ],
+  "summary": [
+    {
+      "mode": 9600,
+      "cli-pure": 9018,
+      "cli-auto": 8551.0,
+      "kaperio-auto": 9069,
+      "optimized_vs_pure": 0.9482146817476159,
+      "wrapper_vs_cli": 1.0605777102093323
+    },
+    {
+      "mode": 10400,
+      "cli-pure": 486831765,
+      "cli-auto": 407701138,
+      "kaperio-auto": 502880274.5,
+      "optimized_vs_pure": 0.837457962505795,
+      "wrapper_vs_cli": 1.2334532029194385
+    },
+    {
+      "mode": 10700,
+      "cli-pure": 9179,
+      "cli-auto": 58611,
+      "kaperio-auto": 58698,
+      "optimized_vs_pure": 6.385336093256346,
+      "wrapper_vs_cli": 1.0014843630035317
+    },
+    {
+      "mode": 13600,
+      "cli-pure": 611632,
+      "cli-auto": 623557,
+      "kaperio-auto": 608732,
+      "optimized_vs_pure": 1.0194970178146336,
+      "wrapper_vs_cli": 0.9762251085305754
+    }
+  ]
+}

@@ -5,7 +5,7 @@
 ## デスクトップ版
 
 Windows EXE、macOS Apple Silicon/Intel用 `.app`、Linux x86-64実行ファイルは
-[GitHub Releases](https://github.com/7011yamazakyuuta-star/kaperio/releases)で配布します。
+[GitHub Releases](https://github.com/7011yamazakyuuta-star/Kaperio/releases)で配布します。
 ZIPまたはtar.gzを展開し、Kaperioを起動します。同梱フォルダーはすべて必要です。
 Pythonは不要、Hashcat・zip2johnは別途必要です。画面は既定ブラウザーで開きます。
 署名・公証、実機検証、保存先の詳細は[デスクトップ配布](docs/DESKTOP.md)を参照してください。

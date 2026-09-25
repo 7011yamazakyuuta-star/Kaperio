@@ -16,6 +16,8 @@
     "kaperio/docs/DISTRIBUTION.md", "kaperio/docs/research.md", "kaperio/docs/validation.md",
     "kaperio/docs/DESKTOP.md", "kaperio/tests/benchmark.py", "kaperio/tests/kernel_coverage.py",
     "kaperio/tests/dictionary_benchmark.py",
+    "kaperio/tests/strategy_integration.py",
+    "kaperio/docs/PERFORMANCE.md", "kaperio/docs/mask-20260925.json", "kaperio/docs/dictionary-20260925.json",
     "kaperio/tests/test_core.py", "kaperio/tests/test_converter.py", "kaperio/tests/test_http.py", "kaperio/tests/test_release.py",
     "kaperio/tests/test_desktop.py", "kaperio/tests/frozen_smoke.py",
     "kaperio/tests/integration.py", "kaperio/tests/recovery-controls.py", "kaperio/tests/release-smoke.cjs"

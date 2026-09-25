@@ -7,7 +7,9 @@ File ownership and permission are separate from the software license.
 ## Stored data
 
 - Imported source copies, hashes, recovery masks, candidate lists, previews,
-  unlocked documents and exports stay under `../outputs/kaperio/` by default.
+  unlocked documents and exports stay in the local data directory. Source runs
+  use `../outputs/kaperio/`; native apps use the per-user OS data directory
+  listed in [DESKTOP.md](docs/DESKTOP.md). New Unix data directories use mode 0700.
 - Candidate lists and masks can contain sensitive password information.
 - Recovered passwords are kept in process memory; a temporary Hashcat result
   file is removed after reading. An abrupt process/machine failure may leave it.
@@ -35,6 +37,6 @@ File ownership and permission are separate from the software license.
 
 Do not attach real passwords, document hashes or confidential files to public issues.
 Use a synthetic reproduction. Submit sensitive security reports through
-[GitHub private vulnerability reporting](https://github.com/7011yamazakyuuta-star/kaperio/security/advisories/new).
+[GitHub private vulnerability reporting](https://github.com/7011yamazakyuuta-star/Kaperio/security/advisories/new).
 Private vulnerability reporting is enabled for this repository.
 No independent security audit, malware certification or code-signing is claimed.

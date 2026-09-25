@@ -1,0 +1,94 @@
+{
+  "runs": [
+    {
+      "mode": 10700,
+      "kernel": "pure",
+      "repeat": 1,
+      "wall_seconds": 16.90700000000652,
+      "candidates": 100000,
+      "outcome": "exhausted",
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "kernel": "auto",
+      "repeat": 1,
+      "wall_seconds": 6.405999999959022,
+      "candidates": 100000,
+      "outcome": "exhausted",
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "kernel": "auto",
+      "repeat": 2,
+      "wall_seconds": 6.406000000075437,
+      "candidates": 100000,
+      "outcome": "exhausted",
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "kernel": "pure",
+      "repeat": 2,
+      "wall_seconds": 16.516000000061467,
+      "candidates": 100000,
+      "outcome": "exhausted",
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "kernel": "pure",
+      "repeat": 3,
+      "wall_seconds": 16.15700000000652,
+      "candidates": 100000,
+      "outcome": "exhausted",
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    },
+    {
+      "mode": 10700,
+      "kernel": "auto",
+      "repeat": 3,
+      "wall_seconds": 5.532000000006519,
+      "candidates": 100000,
+      "outcome": "exhausted",
+      "warnings": [
+        "CUDA補助ライブラリなし。OpenCLへの切り替えを確認中。",
+        "GPUの温度制御により速度が低下しています。",
+        "OpenCLで実行します。CUDAの警告は致命的エラーではありません。",
+        "ファン回転数の取得に非対応です。"
+      ]
+    }
+  ],
+  "median_seconds": {
+    "pure": 16.516000000061467,
+    "auto": 6.405999999959022
+  },
+  "pure_over_auto": 2.578207930091651,
+  "scope": "Kaperio old/new dictionary policy; total wall time including initialization and input write; same 100000 candidates, PDF R6, device 1, workload 1, 80 C abort."
+}

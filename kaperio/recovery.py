@@ -10,6 +10,10 @@ from pathlib import Path
 
 CHARSETS = {'lower': ('?l', 26), 'upper': ('?u', 26), 'digits': ('?d', 10), 'symbols': ('?s', 33)}
 CREATE_FLAGS = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+HYBRIDS = {'hybrid_suffix', 'hybrid_prefix'}
+WORD_STRATEGIES = {'dictionary', 'dictionary_rules'} | HYBRIDS
+RULES = [case + ending for case in (':', 'l', 'u', 'c', 't')
+         for ending in ('', *(f'${n}' for n in range(10)))]
 
 
 def validate_plan(data):
@@ -27,15 +31,20 @@ def validate_plan(data):
         raise ValueError('デバイスIDは 1 または 1,2 の形式です。')
     plan = {'strategy': strategy, 'minutes': minutes, 'workload': workload,
             'temperature': temperature, 'devices': devices, 'kernel': kernel}
-    if strategy == 'dictionary':
+    if strategy not in WORD_STRATEGIES | {'mask'}:
+        raise ValueError('探索方法が不正です。')
+    if strategy in WORD_STRATEGIES:
         candidates = data.get('words', '').splitlines()
         candidates = list(dict.fromkeys(x for x in candidates if x))
         if not candidates or len(candidates) > 100000 or any(len(x.encode('utf-8')) > 127 for x in candidates):
             raise ValueError('候補は1〜100,000行、各行はUTF-8で127バイト以内にしてください。')
-        plan.update(words=candidates, candidates=str(len(candidates)))
-    elif strategy == 'mask':
+        multiplier = len(RULES) if strategy == 'dictionary_rules' else 1
+        plan.update(words=candidates, candidates=str(len(candidates) * multiplier))
+    if strategy == 'mask' or strategy in HYBRIDS:
         low, high = int(data.get('min', 4)), int(data.get('max', 6))
         prefix, suffix = str(data.get('prefix', '')), str(data.get('suffix', ''))
+        if strategy in HYBRIDS:
+            prefix, suffix = '', ''
         chosen = list(dict.fromkeys(data.get('charsets', ['lower', 'upper', 'digits'])))
         if not chosen or any(x not in CHARSETS for x in chosen):
             raise ValueError('探索する文字種を選んでください。')
@@ -45,19 +54,37 @@ def validate_plan(data):
         if not 1 <= low <= high <= 16 or low < fixed or len(prefix + suffix) > 16:
             raise ValueError('全体の文字数は1〜16、固定部分の長さ以上にしてください。')
         size = sum(CHARSETS[x][1] for x in chosen)
+        multiplier = len(plan['words']) if strategy in HYBRIDS else 1
         plan.update(min=low, max=high, prefix=prefix, suffix=suffix, charsets=chosen,
-                    candidates=str(sum(size**(n - fixed) for n in range(low, high + 1))))
-    else:
-        raise ValueError('探索方法が不正です。')
+                    candidates=str(multiplier * sum(size**(n - fixed) for n in range(low, high + 1))))
+    if strategy in WORD_STRATEGIES and candidate_max_bytes(plan) > 127:
+        raise ValueError('変形・追加後の候補はUTF-8で127バイト以内にしてください。')
     return plan
 
 
+def candidate_max_bytes(plan):
+    if plan['strategy'] == 'mask':
+        return plan['max']
+    maximum = max(len(word.encode('utf-8')) for word in plan['words'])
+    if plan['strategy'] in HYBRIDS:
+        maximum += plan['max']
+    elif plan['strategy'] == 'dictionary_rules':
+        maximum += 1
+    return maximum
+
+
 def write_inputs(folder, plan):
-    if plan['strategy'] == 'dictionary':
+    strategy = plan['strategy']
+    if strategy in WORD_STRATEGIES:
         # Hex wordlists preserve literal $HEX[...] and exact UTF-8 bytes.
         path = folder / 'candidates.hex'
         path.write_text('\n'.join(w.encode('utf-8').hex() for w in plan['words']) + '\n', encoding='ascii')
-        return ['-a', '0', '--hex-wordlist', str(path)]
+        if strategy == 'dictionary':
+            return ['-a', '0', '--hex-wordlist', str(path)]
+        if strategy == 'dictionary_rules':
+            rules = folder / 'variants.rule'
+            rules.write_text('\n'.join(RULES) + '\n', encoding='ascii')
+            return ['-a', '0', '--hex-wordlist', str(path), '-r', str(rules)]
     charset = ''.join(CHARSETS[x][0] for x in plan['charsets'])
     prefix = plan['prefix'].replace('?', '??')
     suffix = plan['suffix'].replace('?', '??')
@@ -65,6 +92,10 @@ def write_inputs(folder, plan):
     path = folder / 'search.hcmask'
     masks = [charset + ',' + prefix + '?1' * (length - fixed) + suffix for length in range(plan['min'], plan['max'] + 1)]
     path.write_text('\n'.join(masks) + '\n', encoding='ascii')
+    if strategy == 'hybrid_suffix':
+        return ['-a', '6', '--hex-wordlist', str(folder / 'candidates.hex'), str(path)]
+    if strategy == 'hybrid_prefix':
+        return ['-a', '7', '--hex-wordlist', str(path), str(folder / 'candidates.hex')]
     return ['-a', '3', str(path)]
 
 
@@ -102,8 +133,7 @@ def warning_for(line):
 def optimized_kernel(mode, plan):
     if plan.get('kernel', 'auto') == 'pure' or mode not in (10400, 10500, 10600, 10700):
         return False
-    maximum = (plan['max'] if plan['strategy'] == 'mask' else
-               max(len(word.encode('utf-8')) for word in plan['words']))
+    maximum = candidate_max_bytes(plan)
     # Conservative common bound: never drop longer dictionary candidates for speed.
     return maximum <= 16
 

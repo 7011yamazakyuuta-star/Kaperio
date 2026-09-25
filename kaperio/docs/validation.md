@@ -1,9 +1,30 @@
 # Validation Record
 
-Date: 2026-09-24. Scope: local Windows, CPython 3.12.14, source alpha.
+Updated: 2026-09-25. Scope: desktop alpha, local Windows and native hosted runners.
 This is a development validation record, not a certification or independent audit.
 
-## Confirmed
+## Desktop 0.2
+
+- Windows EXE, macOS arm64/Intel app bundles and Linux x86-64 native builds passed
+  unit/HTTP and frozen-executable tests in [run 36083350402](https://github.com/7011yamazakyuuta-star/Kaperio/actions/runs/36083350402).
+  That run validated commit 1871814 before the additional recovery-method changes;
+  the PR's latest check must also pass before publishing the final desktop assets.
+- Intel macOS required a statically linked cryptography build to avoid the frozen
+  AES-provider import failure. An explicit crypto self-check was added.
+- Local native Windows UI passed 1440px/390px browser acceptance. Tests use generated
+  files, verify four exports, notices, authentication, deletion, and single instance.
+- Real upstream Hashcat 7.1.2 passed the original nine recovery formats and eight
+  extra dictionary boundary/UTF-8/literal-HEX cases. Candidate transformations are
+  bounded using their final byte length, not just base-word length.
+- The 36-run matched-mask comparison and six full dictionary runs are recorded in
+  [PERFORMANCE.md](PERFORMANCE.md), with raw synthetic measurements. No universal
+  speed superiority, device-optimal workload, or independent benchmark is claimed.
+- New rule and prefix/suffix hybrid methods have a 12-case GPU recovery suite across
+  PDF RC4-40, PDF R6, Office 2013 and WinZip AES. UI tests exercise all five methods.
+
+## Earlier Source Alpha
+
+The following records describe the earlier source-only alpha on 2026-09-24:
 
 - 16 unit/HTTP/release tests passed: generated PDF revisions, decryption checks,
   image exports, OOXML byte preservation, AES ZIP, traversal rejection,
@@ -34,10 +55,11 @@ This is a development validation record, not a certification or independent audi
 
 ## Limits
 
-- macOS/Linux and physical mobile devices are not validated.
+- Native macOS/Linux smoke tests are not GPU recovery or physical desktop validation.
+  Physical mobile devices and remote-control workflows remain unvalidated.
 - Classic ZipCrypto, macro-enabled Office and old Office formats are not
   covered by the generated-file acceptance test. Do not advertise universal support.
-- No comparative speed benchmark, recovery-success guarantee, OCR,
+- No universal speed advantage, recovery-success guarantee, OCR,
   signed executable, installer certification or independent security audit.
 - Source packages exclude all user documents and generated test outputs.
 - Fresh-machine installation, public hosting and download provenance are separate

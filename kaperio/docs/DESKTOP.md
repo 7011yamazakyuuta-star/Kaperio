@@ -2,7 +2,7 @@
 
 ## Downloads
 
-Native bundles are published on [GitHub Releases](https://github.com/7011yamazakyuuta-star/kaperio/releases).
+Native bundles are published on [GitHub Releases](https://github.com/7011yamazakyuuta-star/Kaperio/releases).
 An operating-system build is only published after its frozen executable smoke test passes.
 The source ZIP is independent of the native bundles. No app store is required.
 
@@ -52,6 +52,9 @@ Kaperio uses upstream kernels unchanged. Auto mode requests `-O` for supported P
 modes only when every candidate is at most 16 UTF-8 bytes. A longer dictionary keeps
 the pure kernel for the entire list; no candidate is silently removed to improve speed.
 The pure option allows comparison. Office and ZIP retain their normal kernels.
+Hashcat performs its own device-specific autotuning on each run; Kaperio does not
+hardcode device acceleration, loop counts, or clock speeds. Higher workload settings
+remain user-selectable and may affect responsiveness. No profile is fastest on every GPU.
 Default workload 1 and temperature abort at 80 C remain in place. No `--force`,
 overclocking, driver replacement, or thermal-protection bypass is used.
 
@@ -60,6 +63,23 @@ Kaperio runner using equal candidate sets. Each profile runs three times in rota
 order, using the same device, mode, workload, and thermal limit. Initial samples are
 discarded. Thermal warnings are retained. This distinguishes upstream optimization
 benefits from application overhead; it does not prove superiority over tuned Hashcat.
+
+## Recovery methods
+
+- Exact dictionary: preserve each UTF-8 candidate, including literal `$HEX[...]` strings.
+- Mask: known prefix/suffix, ASCII character classes, total length 1-16.
+- Dictionary rules: original/lower/upper/capitalized/toggled ASCII case, each with
+  no suffix or a single trailing digit. 55 rule applications per base word;
+  duplicates mean the displayed count is an upper bound, not unique passwords.
+- Suffix hybrid (`-a 6`): base dictionary plus a 1-16 character mask.
+- Prefix hybrid (`-a 7`): a 1-16 character mask plus the base dictionary.
+
+All use upstream Hashcat engines, time/temperature limits, pause/cancel and checkpoint
+handling. Rules are generated from a small built-in set, not executed as shell code.
+Combined candidates must be at most 127 UTF-8 bytes; optimized PDF kernels are requested
+only when the maximum after rules/masks is at most 16 bytes. ASCII case rules are not
+Unicode linguistic case folding. Recovery still depends on the actual password being
+inside the selected candidate set. No method decrypts a strong password instantly.
 
 ## Build and verify
 
