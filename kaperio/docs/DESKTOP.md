@@ -1,4 +1,4 @@
-# Loxmit Desktop 0.4.0-alpha.1
+# Loxmit Desktop 0.4.0-alpha.2
 
 Formerly Kaperio. The repository URL, internal source directory, legacy launchers,
 and Hashcat session identifiers are intentionally unchanged. This preserves links
@@ -44,6 +44,17 @@ directory exists and the new Loxmit directory does not, it is reused in place.
 Nothing is automatically moved or deleted. Renaming Hiraku does not
 automatically move or delete old user data; use `--data` explicitly to reuse an old library.
 The original documents are not modified. Use the app's power button to stop its service.
+
+New libraries start with zero files. Demo documents and browser test fixtures are
+not bundled or imported at startup. Development/test libraries are never selected
+by shipped launchers. Use the same data directory when launching from a shortcut
+and when launching the executable directly.
+
+Settings now separate availability, engine discovery/manual paths, GPU query and
+library location. Auto-detection only checks environment/PATH and nearby tool
+directories; it does not scan the disk, download tools, execute them or save changes.
+Manual paths are validated before saving. A GPU query of an edited path explicitly
+saves it first. A successful device query is not a performance or recovery test.
 
 ## Hashcat and optimization
 

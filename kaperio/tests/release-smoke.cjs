@@ -16,6 +16,58 @@ const child = spawn(executable, [...entry, '--port', '0', '--data', data, '--no-
 const exited = new Promise(resolve => child.once('exit', resolve));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+async function settingsChecks(page, context, base, data) {
+  assert.equal(await page.locator('#file-count').textContent(), '0');
+  assert.equal(await page.locator('.file-item').count(), 0);
+  assert.ok(await page.locator('#empty').isVisible());
+  await page.screenshot({path:path.join(data,'first-run-empty.png'),fullPage:true});
+  await page.locator('#settings-open').click();
+  await page.locator('#settings-dialog').waitFor({state:'visible'});
+  assert.equal(await page.locator('#hashcat-path').isVisible(),false);
+  assert.equal(await page.locator('#diagnostics').isEnabled(),false);
+  assert.match(await page.locator('#recovery-availability').textContent(),/Hashcat未設定/);
+  await page.screenshot({path:path.join(data,'settings-unconfigured.png'),fullPage:true});
+  await page.locator('#detect-tools').click();
+  await page.waitForFunction(()=>!document.getElementById('detect-tools').disabled);
+  assert.ok(await page.locator('#settings-feedback').isVisible());
+  assert.equal((await (await context.request.get(base+'/api/settings')).json()).hashcat,'');
+  await page.locator('#engine-paths').evaluate(n=>n.open).then(async open=>{if(!open)await page.locator('#engine-paths summary').click()});
+  await page.locator('#hashcat-path').fill('not-an-absolute-path');
+  await page.locator('#settings-save').click();
+  await page.locator('#hashcat-error').waitFor({state:'visible'});
+  assert.equal(await page.locator('#hashcat-path').getAttribute('aria-invalid'),'true');
+  assert.ok(await page.locator('#settings-dialog').isVisible());
+  assert.equal((await (await context.request.get(base+'/api/settings')).json()).hashcat,'');
+  // This placeholder executable is never run. The GPU reply is a browser fixture.
+  const fake=path.join(data,process.platform==='win32'?'hashcat.exe':'hashcat');
+  fs.writeFileSync(fake,'synthetic settings fixture, not executable');
+  await page.locator('#hashcat-path').fill(fake);
+  assert.match(await page.locator('#diagnostics-label').textContent(),/保存して/);
+  let diagnosticCalls=0;
+  await page.route('**/api/diagnostics',async route=>{
+    const saved=await (await context.request.get(base+'/api/settings')).json();
+    assert.equal(saved.hashcat,fake);diagnosticCalls++;
+    return route.fulfill({json:{code:0,text:'Synthetic device query fixture'}});
+  });
+  await page.locator('#diagnostics').click();
+  await page.locator('#gpu-status').filter({hasText:'照会完了'}).waitFor();
+  assert.equal(diagnosticCalls,1);
+  assert.equal(await page.locator('#recovery-availability').textContent(),'デバイス照会済み');
+  await page.unroute('**/api/diagnostics');
+  for(const width of [320,390,1440]){
+    await page.setViewportSize({width,height:844});
+    const bounds=await page.locator('#settings-dialog').boundingBox();
+    assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width);
+    assert.ok(await page.locator('#settings-dialog').evaluate(n=>n.scrollWidth<=n.clientWidth));
+    await page.screenshot({path:path.join(data,'settings-'+width+'.png'),fullPage:true});
+  }
+  await page.locator('#hashcat-path').fill('');
+  await page.locator('#zip2john-path').fill('');
+  await page.locator('#settings-save').click();
+  await page.locator('#settings-dialog').waitFor({state:'hidden'});
+  await page.setViewportSize({width:1440,height:1000});
+}
+
 // Deterministic visual states are browser-only fixtures, never recovery evidence.
 async function designChecks(page, data) {
   const now = Date.now() / 1000;
@@ -106,6 +158,8 @@ async function designChecks(page, data) {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(launch.url);
+    await page.locator('#empty').waitFor();
+    await settingsChecks(page,context,base,data);
     await page.locator('#settings-open').click();
     await page.locator('#settings-dialog').waitFor({state: 'visible'});
     assert.equal(await page.locator('#hashcat-path').inputValue(), '');
@@ -114,7 +168,7 @@ async function designChecks(page, data) {
     assert.equal(licenses.status(), 200);
     assert.match(await licenses.text(), /Lucide Icons/);
     await page.locator('#settings-form button[type=submit]').click();
-    await page.locator('#settings-close').click();
+    await page.locator('#settings-dialog').waitFor({state:'hidden'});
     await page.locator('#files').setInputFiles(source);
     await page.locator('#document-name').filter({hasText: 'Sample.pdf'}).waitFor();
     await page.locator('#recover-mode').click();
@@ -170,7 +224,7 @@ async function designChecks(page, data) {
     if (!process.env.KAPERIO_EXECUTABLE) assert.match(second, /already running/);
     await designChecks(page, data);
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({passed: true, checks: ['fresh-no-engine', 'licenses', 'six-strategy-controls', 'guided-estimate', 'auto-workload-control', 'unlock', 'preview', 'export', 'mobile', 'delete', 'single-instance', 'six-responsive-widths', 'office-colours', 'neutral-states', 'pause-resume-motion', 'stale-offline-motion', 'reduced-motion', 'focus-stability', 'keyboard-tabs'], screenshots: data}));
+    console.log(JSON.stringify({passed: true, checks: ['empty-first-run', 'settings-availability', 'read-only-detect', 'field-validation', 'save-before-gpu-query', 'responsive-settings', 'fresh-no-engine', 'licenses', 'six-strategy-controls', 'guided-estimate', 'auto-workload-control', 'unlock', 'preview', 'export', 'mobile', 'delete', 'single-instance', 'six-responsive-widths', 'office-colours', 'neutral-states', 'pause-resume-motion', 'stale-offline-motion', 'reduced-motion', 'focus-stability', 'keyboard-tabs'], screenshots: data}));
   } finally {
     if (context && base) await context.request.post(base + '/api/shutdown', {headers: {'X-Kaperio': '1'}, data: {}}).catch(() => {});
     if (browser) await browser.close();

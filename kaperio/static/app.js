@@ -21,7 +21,7 @@ function time(seconds){return seconds?new Date(seconds*1000).toLocaleTimeString(
 async function api(path,data){
   const options=data===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json','X-Loxmit':'1'},body:JSON.stringify(data)};
   const r=await fetch(path,options);const result=await r.json();
-  if(!r.ok)throw Error(result.error||'処理に失敗しました');return result;
+  if(!r.ok){const error=Error(result.error||'処理に失敗しました');error.field=result.field;throw error}return result;
 }
 function job(){return state.jobs.find(j=>j.id===state.selected)}
 function fileType(j){
@@ -265,10 +265,65 @@ $('reveal-password').onclick=async()=>{
 const notes={pdf:'Officeの印刷レイアウト',image_pdf:'画像のみ・テキスト検索なし',word:'ページ画像・本文の文字編集なし',images:'PNG / 1ページ1枚',text:'OCRなし・元のテキスト層に依存（文字化けの可能性あり）'};
 function exportNote(){$('format-note').textContent=notes[$('export-kind').value];$('image-options').hidden=['text','pdf'].includes($('export-kind').value)}
 $('export-kind').onchange=exportNote;$('export-form').onsubmit=e=>{e.preventDefault();action('export',{kind:$('export-kind').value,dpi:Number($('dpi').value),grayscale:$('color').value==='gray'})};
-$('settings-open').onclick=async()=>{try{const s=await api('/api/settings');$('hashcat-path').value=s.hashcat;$('zip2john-path').value=s.zip2john||'';$('output-path').textContent=s.output_dir;$('settings-dialog').showModal()}catch(e){toast(e.message)}};
+let savedSettings={},settingsBusy=false,settingsGpuChecked=false;
+function settingsDraft(){return {hashcat:$('hashcat-path').value.trim(),zip2john:$('zip2john-path').value.trim()}}
+function settingsDirty(){const draft=settingsDraft();return draft.hashcat!==(savedSettings.hashcat||'')||draft.zip2john!==(savedSettings.zip2john||'')}
+function settingsFeedback(message,error=false){$('settings-feedback').textContent=message;$('settings-feedback').hidden=!message;$('settings-feedback').classList.toggle('field-error',error)}
+function clearSettingsErrors(){
+  for(const key of ['hashcat','zip2john']){$(key+'-error').hidden=true;$(key+'-path').removeAttribute('aria-invalid')}
+  settingsFeedback('');
+}
+function settingsError(error){
+  settingsFeedback(error.message,true);
+  if(['hashcat','zip2john'].includes(error.field)){
+    $('engine-paths').open=true;$(error.field+'-error').textContent=error.message;$(error.field+'-error').hidden=false;
+    $(error.field+'-path').setAttribute('aria-invalid','true');$(error.field+'-path').focus();
+  }
+}
+function updateSettingsState(){
+  const dirty=settingsDirty(), draft=settingsDraft(), locked=!!savedSettings.settings_locked;
+  $('hashcat-status').textContent=dirty?'未保存':savedSettings.hashcat_configured?'場所を設定済み':savedSettings.hashcat?'ファイルが見つかりません':'未設定';
+  const gpu=settingsGpuChecked?'デバイス照会済み':'GPU未確認';
+  $('recovery-availability').textContent=dirty?'未保存':savedSettings.hashcat_configured?gpu:'Hashcat未設定';
+  $('zip-availability').textContent=dirty?'未保存':!savedSettings.hashcat_configured?'Hashcat未設定':savedSettings.zip2john_configured?gpu:'zip2john未設定';
+  $('settings-save-state').textContent=locked?'探索中は変更できません':dirty?'未保存':'';
+  $('diagnostics-label').textContent=dirty?'保存してGPUを確認':'GPUを確認';
+  for(const node of $('settings-form').querySelectorAll('input,button'))node.disabled=settingsBusy||(locked&&node.id!=='settings-close');
+  $('diagnostics').disabled=settingsBusy||locked||!draft.hashcat;
+}
+function applySettings(s){savedSettings=s;$('hashcat-path').value=s.hashcat||'';$('zip2john-path').value=s.zip2john||'';$('output-path').textContent=s.output_dir;updateSettingsState()}
+async function saveSettings(){
+  clearSettingsErrors();const result=await api('/api/settings',settingsDraft());applySettings(result);return result;
+}
+$('settings-open').onclick=async()=>{try{
+  const s=await api('/api/settings');clearSettingsErrors();settingsBusy=false;settingsGpuChecked=false;applySettings(s);
+  $('engine-paths').open=false;$('diagnostics-details').hidden=true;$('diagnostics-details').open=false;
+  $('gpu-status').textContent='未確認';$('settings-dialog').showModal();
+}catch(e){toast(e.message)}};
 $('settings-close').onclick=()=>$('settings-dialog').close();
-$('settings-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/settings',{hashcat:$('hashcat-path').value,zip2john:$('zip2john-path').value});toast('設定を保存しました');await refresh()}catch(e){toast(e.message)}};
-$('diagnostics').onclick=async()=>{$('diagnostics').disabled=true;$('diagnostics-result').hidden=false;$('diagnostics-result').textContent='GPUを確認しています…';try{const r=await api('/api/diagnostics',{});$('diagnostics-result').textContent=r.text}catch(e){$('diagnostics-result').textContent=e.message}finally{$('diagnostics').disabled=false}};
+$('settings-dialog').addEventListener('cancel',event=>{if(settingsBusy)event.preventDefault()});
+$('settings-form').oninput=()=>{clearSettingsErrors();settingsGpuChecked=false;$('gpu-status').textContent='未確認';$('diagnostics-details').hidden=true;updateSettingsState()};
+$('settings-form').onsubmit=async e=>{e.preventDefault();settingsBusy=true;updateSettingsState();try{await saveSettings();$('settings-dialog').close();toast('設定を保存しました');await refresh()}catch(error){settingsError(error)}finally{settingsBusy=false;updateSettingsState();const invalid=$('settings-form').querySelector('[aria-invalid=true]');if(invalid)invalid.focus()}};
+$('detect-tools').onclick=async()=>{
+  settingsBusy=true;updateSettingsState();clearSettingsErrors();settingsFeedback('インストール済みの実行ファイルを確認中…');
+  try{
+    const result=await api('/api/settings/detect',{});let applied=0;
+    for(const key of ['hashcat','zip2john'])if(!$(key+'-path').value.trim()&&result[key]){$(key+'-path').value=result[key];applied++}
+    if(applied){settingsGpuChecked=false;$('gpu-status').textContent='未確認';$('engine-paths').open=true;settingsFeedback('検出した場所を入力しました。未保存です。')}
+    else settingsFeedback(result.hashcat||result.zip2john?'入力済みの場所を維持しました。':'自動検出では見つかりませんでした。');
+  }catch(error){settingsError(error)}finally{settingsBusy=false;updateSettingsState()}
+};
+$('diagnostics').onclick=async()=>{
+  settingsBusy=true;updateSettingsState();$('gpu-status').textContent='確認中…';clearSettingsErrors();
+  try{
+    if(settingsDirty())await saveSettings();
+    const result=await api('/api/diagnostics',{});$('diagnostics-result').textContent=result.text;
+    $('diagnostics-details').hidden=false;$('diagnostics-details').open=result.code!==0;
+    $('gpu-status').textContent=result.code===0?'照会完了':'確認できませんでした';
+    settingsGpuChecked=result.code===0;
+  }catch(error){$('gpu-status').textContent='未確認';settingsError(error)}
+  finally{settingsBusy=false;updateSettingsState();const invalid=$('settings-form').querySelector('[aria-invalid=true]');if(invalid)invalid.focus()}
+};
 $('shutdown').onclick=async()=>{try{await api('/api/shutdown',{});clearInterval(poll);clearInterval(motionPoll);state.connected=false;updateMotion();toast('アプリを終了しました。');document.querySelectorAll('button').forEach(b=>b.disabled=true)}catch(e){toast(e.message)}};
 let drag=0;window.addEventListener('dragenter',e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();drag++;$('drop-overlay').hidden=false}});
 window.addEventListener('dragleave',()=>{if(--drag<=0){drag=0;$('drop-overlay').hidden=true}});window.addEventListener('dragover',e=>e.preventDefault());

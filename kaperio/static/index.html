@@ -122,13 +122,25 @@
     </div>
   </main>
 </div>
-<dialog id="settings-dialog"><form id="settings-form">
-  <div class="dialog-heading"><h2>設定</h2><button class="icon quiet" type="button" id="settings-close" aria-label="設定を閉じる"><i data-lucide="x"></i></button></div>
-  <label for="hashcat-path">Hashcat 実行ファイル</label><input id="hashcat-path" spellcheck="false">
-  <label for="zip2john-path">zip2john 実行ファイル（ZIP探索用・任意）</label><input id="zip2john-path" spellcheck="false">
-  <label>保存先</label><div id="output-path" class="path"></div>
-  <div class="inline-actions"><button type="submit" class="primary"><i data-lucide="save"></i>保存</button><button type="button" id="diagnostics"><i data-lucide="cpu"></i>GPU診断</button></div>
-  <p><a href="/api/licenses" target="_blank" rel="noopener">ライセンス・第三者表示</a></p><pre id="diagnostics-result" hidden></pre>
+<dialog id="settings-dialog" aria-labelledby="settings-title"><form id="settings-form">
+  <div class="dialog-heading"><h2 id="settings-title">設定</h2><button class="icon quiet" type="button" id="settings-close" aria-label="設定を閉じる" title="閉じる"><i data-lucide="x"></i></button></div>
+  <section class="settings-section">
+    <h3>利用状況</h3>
+    <dl class="capability-list"><dt>既知パスワードで開封</dt><dd><i data-lucide="check"></i>設定不要</dd><dt>パスワード探索</dt><dd id="recovery-availability">未設定</dd><dt>ZIPのパスワード探索</dt><dd id="zip-availability">未設定</dd></dl>
+  </section>
+  <section class="settings-section">
+    <div class="settings-heading"><h3>探索エンジン</h3><button type="button" id="detect-tools"><i data-lucide="search"></i>自動検出</button></div>
+    <div class="engine-state"><strong>Hashcat</strong><span id="hashcat-status" class="muted">未設定</span><a href="https://hashcat.net/hashcat/" target="_blank" rel="noopener noreferrer">公式ダウンロード<i data-lucide="external-link"></i></a></div>
+    <details id="engine-paths"><summary><i data-lucide="chevron-right"></i>実行ファイルの場所を指定</summary>
+      <label for="hashcat-path">Hashcat の実行ファイル</label><input id="hashcat-path" spellcheck="false" autocomplete="off" placeholder="hashcat.exe / hashcat / hashcat.bin" aria-describedby="hashcat-error"><p id="hashcat-error" class="field-error" hidden></p>
+      <label for="zip2john-path">zip2john の実行ファイル <span class="muted">ZIP探索のみ・任意</span></label><input id="zip2john-path" spellcheck="false" autocomplete="off" placeholder="zip2john.exe / zip2john" aria-describedby="zip2john-error"><p id="zip2john-error" class="field-error" hidden></p>
+    </details>
+    <p id="settings-feedback" class="muted" role="status" hidden></p>
+    <div class="diagnostic-row"><button type="button" id="diagnostics" disabled><i data-lucide="cpu"></i><span id="diagnostics-label">GPUを確認</span></button><span id="gpu-status" class="muted">未確認</span></div>
+    <details id="diagnostics-details" hidden><summary><i data-lucide="chevron-right"></i>診断ログ</summary><pre id="diagnostics-result"></pre></details>
+  </section>
+  <section class="settings-section settings-storage"><h3>ライブラリの保存先</h3><div id="output-path" class="path"></div></section>
+  <div class="settings-footer"><a href="/api/licenses" target="_blank" rel="noopener">ライセンス</a><span id="settings-save-state" class="muted" aria-live="polite"></span><button type="submit" class="primary" id="settings-save"><i data-lucide="save"></i>保存して閉じる</button></div>
 </form></dialog>
 <dialog id="remove-dialog"><h2>ライブラリから削除</h2><p id="remove-name"></p><p class="muted">作業用コピーと書き出したファイルを削除します。追加元の原本は残ります。</p><div class="inline-actions"><button id="remove-cancel">キャンセル</button><button class="danger-solid" id="remove-confirm"><i data-lucide="trash-2"></i>削除</button></div></dialog>
 <div id="toast" role="alert" hidden></div><div id="drop-overlay" hidden>ファイルを追加</div>

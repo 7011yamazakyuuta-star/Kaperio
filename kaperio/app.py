@@ -48,6 +48,29 @@ def public_plan(plan):
     return {key: plan[key] for key in keys if key in plan}
 
 
+class SettingsError(ValueError):
+    def __init__(self, message, field):
+        super().__init__(message)
+        self.field = field
+
+
+def tool_path(value, field):
+    label, names = ('Hashcat', {'hashcat.exe', 'hashcat', 'hashcat.bin'}) if field == 'hashcat' else ('zip2john', {'zip2john', 'zip2john.exe'})
+    value = str(value or '').strip()
+    if len(value) > 1 and value[0] == value[-1] == '"':
+        value = value[1:-1]
+    if not value:
+        return None
+    candidate = Path(value).expanduser()
+    if not candidate.is_absolute():
+        raise SettingsError(label + 'の実行ファイルをフルパスで指定してください。', field)
+    if not candidate.is_file():
+        raise SettingsError('ファイルが見つかりません。フォルダーではなく実行ファイルを指定してください。', field)
+    if candidate.name.lower() not in names:
+        raise SettingsError(label + 'の実行ファイルを指定してください。', field)
+    return candidate.resolve()
+
+
 def acquire_instance(root):
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     handle = (root / 'instance.lock').open('a+b')
@@ -91,7 +114,7 @@ class Library:
             settings = json.loads(config.read_text(encoding='utf-8'))
         except (OSError, ValueError):
             settings = {}
-        self.zip2john = discover_zip2john(settings.get('zip2john'))
+        self.zip2john = None if settings.get('zip2john') == '' else discover_zip2john(settings.get('zip2john'))
         for path in self.root.glob('*/job.json'):
             try:
                 job = json.loads(path.read_text(encoding='utf-8'))
@@ -108,11 +131,14 @@ class Library:
             except (OSError, ValueError, KeyError):
                 continue
 
-    def discover_hashcat(self):
+    def discover_hashcat(self, configured=True):
         config = self.root / 'settings.json'
-        if config.exists():
+        if configured and config.exists():
             try:
-                candidate = Path(json.loads(config.read_text(encoding='utf-8'))['hashcat'])
+                stored = json.loads(config.read_text(encoding='utf-8'))['hashcat']
+                if not stored:
+                    return None
+                candidate = Path(stored)
                 if candidate.is_file():
                     return candidate.resolve()
             except (ValueError, KeyError):
@@ -120,7 +146,35 @@ class Library:
         candidates = [os.environ.get('LOXMIT_HASHCAT', ''), os.environ.get('KAPERIO_HASHCAT', ''),
                       shutil.which('hashcat') or '',
                       APP_DIR.parent / 'work' / 'tools' / 'hashcat-7.1.2' / ('hashcat.exe' if os.name == 'nt' else 'hashcat.bin')]
+        # Only nearby application tool folders, never the user's whole disk.
+        for base in (APP_DIR, APP_DIR.parent, APP_DIR.parent.parent):
+            for tools in (base / 'tools', base / 'work' / 'tools'):
+                for directory in sorted(tools.glob('hashcat-*'), reverse=True):
+                    candidates.extend(directory / name for name in (('hashcat.exe',) if os.name == 'nt' else ('hashcat', 'hashcat.bin')))
         return next((Path(x).resolve() for x in candidates if x and Path(x).is_file()), None)
+
+    def settings_snapshot(self):
+        with self.lock:
+            return {'hashcat': str(self.hashcat or ''), 'zip2john': str(self.zip2john or ''),
+                    'output_dir': str(self.root), 'version': VERSION,
+                    'hashcat_configured': bool(self.hashcat and self.hashcat.is_file()),
+                    'zip2john_configured': bool(self.zip2john and self.zip2john.is_file()),
+                    'settings_locked': any(j['state'] in {'recovering', 'queued', 'pausing'} for j in self.jobs.values())}
+
+    def save_settings(self, data):
+        with self.lock:
+            if any(j['state'] in {'recovering', 'queued', 'pausing'} for j in self.jobs.values()):
+                raise ValueError('探索を停止してから設定を変更してください。')
+            candidate = tool_path(data.get('hashcat', self.hashcat), 'hashcat')
+            zip2john = tool_path(data.get('zip2john', self.zip2john), 'zip2john')
+            temporary = self.root / 'settings.tmp'
+            temporary.write_text(json.dumps({'hashcat': str(candidate or ''), 'zip2john': str(zip2john or '')}), encoding='utf-8')
+            temporary.replace(self.root / 'settings.json')
+            self.hashcat, self.zip2john = candidate, zip2john
+            for job in self.jobs.values():
+                if job['info']['format'] == 'zip' and not job.get('unlocked'):
+                    job['info'] = inspect_file(self.folder(job['id']) / job['source'], '.zip', zip2john)
+                    self.save(job)
 
     def folder(self, job_id):
         if job_id not in self.jobs:
@@ -442,9 +496,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/jobs':
             self.send_data(200, {'jobs': self.library.snapshot()})
         elif path == '/api/settings':
-            self.send_data(200, {'hashcat': str(self.library.hashcat or ''), 'output_dir': str(self.library.root),
-                                 'zip2john': str(self.library.zip2john or ''),
-                                 'version': VERSION, 'connection': self.server.origin, 'tls': self.server.tls})
+            self.send_data(200, dict(self.library.settings_snapshot(), connection=self.server.origin, tls=self.server.tls))
         elif path == '/api/licenses':
             texts = ['Loxmit third-party notices\n' + (APP_DIR / 'THIRD_PARTY.md').read_text(encoding='utf-8'),
                      'Loxmit license\n' + (APP_DIR / 'LICENSE').read_text(encoding='utf-8')]
@@ -513,7 +565,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('リクエストが不正です。')
             self.post_route(data)
         except (ValueError, KeyError, TypeError, OSError) as exc:
-            self.send_data(400, {'error': str(exc)})
+            self.send_data(400, {'error': str(exc), 'field': getattr(exc, 'field', None)})
         except Exception as exc:
             self.send_data(500, {'error': '処理に失敗しました: ' + str(exc)})
 
@@ -522,25 +574,19 @@ class Handler(BaseHTTPRequestHandler):
             plan = validate_plan(data)
             self.send_data(200, {'candidates': plan['candidates'], 'groups': plan.get('groups', [])})
             return
+        elif self.path == '/api/settings/detect':
+            self.send_data(200, {'hashcat': str(self.library.discover_hashcat(configured=False) or ''),
+                                 'zip2john': str(discover_zip2john() or '')})
+            return
         elif self.path == '/api/settings':
-            candidate = Path(data['hashcat']).resolve() if data.get('hashcat') else None
-            if candidate and (not candidate.is_file() or candidate.name.lower() not in ('hashcat.exe', 'hashcat', 'hashcat.bin')):
-                raise ValueError('Hashcatの実行ファイルを指定してください。')
-            zip2john = Path(data['zip2john']).resolve() if data.get('zip2john') else None
-            if zip2john and (not zip2john.is_file() or zip2john.name.lower() not in ('zip2john', 'zip2john.exe')):
-                raise ValueError('zip2johnの実行ファイルを指定してください。')
-            if any(j['state'] in {'recovering', 'queued', 'pausing'} for j in self.library.jobs.values()):
-                raise ValueError('探索を停止してから設定を変更してください。')
-            self.library.hashcat = candidate
-            self.library.zip2john = zip2john
-            (self.library.root / 'settings.json').write_text(json.dumps({'hashcat': str(candidate or ''), 'zip2john': str(zip2john or '')}), encoding='utf-8')
-            for job in self.library.jobs.values():
-                if job['info']['format'] == 'zip' and not job.get('unlocked'):
-                    job['info'] = inspect_file(self.library.folder(job['id']) / job['source'], '.zip', zip2john)
-                    self.library.save(job)
+            self.library.save_settings(data)
+            self.send_data(200, dict(self.library.settings_snapshot(), ok=True))
+            return
         elif self.path == '/api/diagnostics':
             if not self.library.hashcat:
                 raise ValueError('Hashcatが見つかりません。')
+            if self.library.settings_snapshot()['settings_locked']:
+                raise ValueError('探索を停止してからGPUを確認してください。')
             result = subprocess.run([str(self.library.hashcat), '-I'], cwd=self.library.hashcat.parent,
                                     capture_output=True, timeout=45, creationflags=CREATE_FLAGS)
             self.send_data(200, {'text': (result.stdout + result.stderr).decode('utf-8', errors='replace'), 'code': result.returncode})

@@ -102,6 +102,13 @@ def main():
             notices = request('/api/licenses')
             assert notices[0] == 200 and b'Python' in notices[1] and b'pdfium' in notices[1], (notices[0], notices[1][:500])
             assert api('/api/settings')['version'] == VERSION
+            assert api('/api/jobs')['jobs'] == []
+            before = api('/api/settings')
+            detected = api('/api/settings/detect', {})
+            assert set(detected) == {'hashcat', 'zip2john'}
+            assert api('/api/settings')['hashcat'] == before['hashcat']
+            assert api('/api/jobs')['jobs'] == []
+            checks += ['empty-first-run', 'read-only-engine-detection']
             estimate = api('/api/recovery/estimate', {'strategy': 'guided', 'words': 'test', 'numbers': '2024'})
             assert int(estimate['candidates']) > 1 and len(estimate['groups']) == 3
             checks.append('guided-estimate')

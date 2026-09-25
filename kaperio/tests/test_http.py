@@ -5,6 +5,7 @@ import threading
 import unittest
 from pathlib import Path
 from http.server import ThreadingHTTPServer
+from unittest.mock import patch
 
 from app import Handler, Library
 
@@ -81,3 +82,72 @@ class HTTPTests(unittest.TestCase):
         self.assertIsNone(self.library.hashcat)
         self.assertIsNone(self.library.zip2john)
         self.assertEqual(self.request('POST','/api/settings',json.dumps({'zip2john':'not-existing.exe'}),headers)[0],400)
+
+    def test_first_run_has_no_documents_and_settings_status_is_explicit(self):
+        headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1'}
+        self.library.hashcat = self.library.zip2john = None
+        status, body = self.request('GET', '/api/settings', headers=headers)
+        self.assertEqual(status, 200)
+        data = json.loads(body)
+        self.assertFalse(data['hashcat_configured'])
+        self.assertFalse(data['zip2john_configured'])
+        self.assertFalse(data['settings_locked'])
+        self.assertEqual(json.loads(self.request('GET', '/api/jobs', headers=headers)[1]), {'jobs': []})
+
+    def test_detect_is_authenticated_read_only_and_does_not_execute(self):
+        headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1'}
+        self.assertEqual(self.request('POST', '/api/settings/detect', '{}')[0], 403)
+        fake = Path(self.tmp.name) / 'hashcat.exe'
+        with patch.object(self.library, 'discover_hashcat', return_value=fake), patch('app.discover_zip2john', return_value=None), patch('app.subprocess.run') as run:
+            status, body = self.request('POST', '/api/settings/detect', '{}', headers)
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(body)['hashcat'], str(fake))
+            run.assert_not_called()
+        self.assertFalse((Path(self.tmp.name) / 'settings.json').exists())
+        self.assertEqual(self.library.snapshot(), [])
+        headers['Origin'] = 'https://other.example'
+        self.assertEqual(self.request('POST', '/api/settings/detect', '{}', headers)[0], 403)
+
+    def test_settings_errors_identify_field_and_preserve_previous_settings(self):
+        headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1'}
+        candidate = Path(self.tmp.name) / 'hashcat.exe'
+        candidate.touch()
+        status, body = self.request('POST', '/api/settings', json.dumps({'hashcat': '"' + str(candidate) + '"'}), headers)
+        self.assertEqual(status, 200)
+        self.assertTrue(json.loads(body)['hashcat_configured'])
+        original = (Path(self.tmp.name) / 'settings.json').read_bytes()
+        status, body = self.request('POST', '/api/settings', json.dumps({'hashcat': '', 'zip2john': 'missing.exe'}), headers)
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['field'], 'zip2john')
+        self.assertEqual((Path(self.tmp.name) / 'settings.json').read_bytes(), original)
+        self.assertEqual(self.library.hashcat, candidate.resolve())
+        self.library.jobs['busy-test'] = {'state': 'recovering'}
+        self.assertEqual(self.request('POST', '/api/diagnostics', '{}', headers)[0], 400)
+        self.assertEqual(self.request('POST', '/api/settings', '{}', headers)[0], 400)
+        self.library.jobs.clear()
+
+    def test_cleared_engine_stays_cleared_after_restart(self):
+        headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1'}
+        self.request('POST', '/api/settings', json.dumps({'hashcat': '', 'zip2john': ''}), headers)
+        candidate = Path(self.tmp.name) / 'hashcat.exe'
+        candidate.touch()
+        with patch.dict('os.environ', {'LOXMIT_HASHCAT': str(candidate)}):
+            restored = Library(self.tmp.name)
+            try:
+                self.assertIsNone(restored.hashcat)
+                self.assertIsNone(restored.zip2john)
+                self.assertEqual(restored.discover_hashcat(configured=False), candidate.resolve())
+            finally:
+                restored.close()
+
+    def test_gpu_diagnostics_use_the_saved_executable(self):
+        from subprocess import CompletedProcess
+        headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1'}
+        candidate = Path(self.tmp.name) / 'hashcat.exe'
+        candidate.touch()
+        self.library.save_settings({'hashcat': str(candidate)})
+        with patch('app.subprocess.run', return_value=CompletedProcess([], 0, b'device fixture', b'')) as run:
+            status, body = self.request('POST', '/api/diagnostics', '{}', headers)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['code'], 0)
+        self.assertEqual(run.call_args.args[0], [str(candidate.resolve()), '-I'])

@@ -32,7 +32,7 @@ Small-screen columns stack and the library becomes a horizontal file list.
 
 ## Verification
 
-Verified locally on Windows 11 on 2026-09-25:
+The original dashboard revision (0.4.0-alpha.1) was verified locally on Windows 11 on 2026-09-25:
 
 - 36 unit/HTTP tests passed, including elapsed-time pause/restart accounting,
   event-history limits, secret-free summaries, old-library compatibility on
@@ -57,3 +57,32 @@ Verified locally on Windows 11 on 2026-09-25:
 Screenshots from `tests/release-smoke.cjs` use synthetic documents and explicit
 browser-only state fixtures. They are UI evidence, not GPU performance evidence.
 Previous Kaperio benchmarks remain historical and the engine is unchanged.
+
+## Settings and first-run revision (0.4.0-alpha.2)
+
+Observed issues in the previous settings screen: empty executable fields had no
+availability state; engine paths and output location had equal visual emphasis;
+GPU diagnostics used saved settings rather than the path currently being edited.
+The local demonstration launcher also pointed at an existing development library,
+which mixed test documents and an earlier user-imported document.
+
+The revised settings view groups availability, engines and storage in separate
+unframed sections. Manual paths are collapsed; auto-detection is explicit and
+read-only. Validation errors identify the input. The GPU action explicitly saves
+an edited path before querying it. GPU query results are not speed evidence.
+
+The local launcher now uses the normal application data directory, with zero
+initial documents. The old development library and original files are retained,
+not deleted. No sample document exists in the application bundle or startup code.
+
+Validation: 41 unit/HTTP tests pass. Browser acceptance checks zero initial files,
+availability labels, read-only detection, field-specific errors, save-before-query,
+and settings layouts at 320, 390 and 1440 pixels, plus the dashboard regression
+checks above. The GPU response in this browser test is explicitly synthetic; a
+separate unit test checks the actual subprocess argument uses the saved path.
+The final Windows EXE also passed 20 frozen HTTP checks and all 25 browser
+acceptance groups, including zero-file startup and read-only detection.
+
+The previous dashboard commit `1f8f762` passed all four native hosted builds and
+frozen tests in [run 36107254054](https://github.com/7011yamazakyuuta-star/Kaperio/actions/runs/36107254054).
+This is evidence for that commit only; the settings revision requires its own run.
