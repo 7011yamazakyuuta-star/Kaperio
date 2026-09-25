@@ -1,4 +1,4 @@
-# Kaperio Desktop 0.2.0-alpha.1
+# Kaperio Desktop 0.3.0-alpha.1
 
 ## Downloads
 
@@ -49,8 +49,11 @@ the complete upstream installation for your OS, not another OS's binary.
 On macOS Hashcat support still depends on the OS/GPU/backend supported by upstream.
 
 Kaperio uses upstream kernels unchanged. Auto mode requests `-O` for supported PDF
-modes only when every candidate is at most 16 UTF-8 bytes. A longer dictionary keeps
-the pure kernel for the entire list; no candidate is silently removed to improve speed.
+modes only when every candidate in the stage is at most 16 UTF-8 bytes.
+No candidate is silently removed to improve speed.
+PDF R6 mixed lists split when at least 65,536 base words fit the optimized bound;
+short words use the optimized kernel and long words retain the pure kernel.
+Smaller lists and other modes stay in one process to avoid extra startup costs.
 The pure option allows comparison. Office and ZIP retain their normal kernels.
 Hashcat performs its own device-specific autotuning on each run; Kaperio does not
 hardcode device acceleration, loop counts, or clock speeds. Higher workload settings
@@ -73,6 +76,11 @@ benefits from application overhead; it does not prove superiority over tuned Has
   duplicates mean the displayed count is an upper bound, not unique passwords.
 - Suffix hybrid (`-a 6`): base dictionary plus a 1-16 character mask.
 - Prefix hybrid (`-a 7`): a 1-16 character mask plus the base dictionary.
+- Guided: deterministic local hints, ordered exact / ASCII case and substitutions /
+  supplied numeric tokens and symbols / optional word pairs and deletion/transposition.
+  Maximum 64 hints (48 UTF-8 bytes each), 32 tokens (16 bytes), and 100,000 unique
+  generated words. Overflow is rejected, not truncated. No probabilistic success
+  rate or AI model is claimed. Inputs are not sent to external services.
 
 All use upstream Hashcat engines, time/temperature limits, pause/cancel and checkpoint
 handling. Rules are generated from a small built-in set, not executed as shell code.
@@ -80,6 +88,27 @@ Combined candidates must be at most 127 UTF-8 bytes; optimized PDF kernels are r
 only when the maximum after rules/masks is at most 16 bytes. ASCII case rules are not
 Unicode linguistic case folding. Recovery still depends on the actual password being
 inside the selected candidate set. No method decrypts a strong password instantly.
+
+Completed stages are atomically checkpointed locally. The active stage uses its own
+Hashcat restore file. Resume verifies a digest of the source hash, plan, candidate
+list and executable path/size/mtime. A legacy root restore file remains supported.
+Progress across stages is candidate-weighted; amplification/duplicate rules can make
+it an upper-bound estimate, not a count of unique passwords. A new time budget applies
+on each explicit resume. Generated candidates are removed after successful recovery.
+
+Optional workload auto measurement uses the actual attack and all its candidates;
+it does not replace the canonical search with a sample. It runs workloads 1,2,3,3,2,1
+for up to 12 wall seconds each, discarding the first 3 seconds of speed samples.
+It requires >= 1,000,000 candidates and >= 120 seconds remaining to start.
+Trial results that find the password or exhaust the stage are honored immediately.
+Otherwise the full stage is searched again, so some candidates repeat. Trial time
+counts against the overall limit. Pause/cancel and temperature abort remain active.
+At least four post-warmup samples per trial, two usable trials per workload, <=20%
+repeat variation, no throttling warning and temperature below min(limit-5,75 C) are
+required. A >=10% speed gain is required to raise load; within 5% of the best score,
+prefer the lower load. Missing thermal telemetry falls back to workload 1.
+Measurements are local to a stage/job, not a portable GPU profile or a universal
+fastest guarantee. Drivers/CUDA/backends are not automatically installed or changed.
 
 ## Build and verify
 

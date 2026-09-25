@@ -78,12 +78,13 @@ class DesktopTests(unittest.TestCase):
             try:
                 jid = library.import_pdf(source.name, source.read_bytes())
                 with patch.object(library.recovery_pool, 'submit') as submit:
-                    for strategy in ('dictionary_rules', 'hybrid_prefix', 'hybrid_suffix'):
+                    for strategy in ('dictionary_rules', 'hybrid_prefix', 'hybrid_suffix', 'guided'):
                         library.start_recovery(jid, {'strategy': strategy, 'words': 'private-word'})
+                        original_words = list(submit.call_args.args[3]['words'])
                         self.assertNotIn('words', library.jobs[jid]['plan'])
                         library.update(jid, state='paused')
                         library.start_recovery(jid, {}, resume=True)
-                        self.assertEqual(submit.call_args.args[3]['words'], ['private-word'])
+                        self.assertEqual(submit.call_args.args[3]['words'], original_words)
                         library.update(jid, state='paused')
             finally:
                 library.close()

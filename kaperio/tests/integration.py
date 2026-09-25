@@ -33,7 +33,7 @@ def wait(library,jid,timeout=100):
 
 def main():
     ROOT.mkdir(parents=True,exist_ok=True)
-    library=Library(ROOT/'library')
+    library=Library(ROOT/('library-' + str(time.time_ns())))
     results=[]
     try:
         sources=[]

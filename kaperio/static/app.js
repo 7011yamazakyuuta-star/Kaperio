@@ -19,10 +19,29 @@ const outputs=$('outputs');outputs.replaceChildren();for(const out of j.outputs)
 $('export-form').hidden=!j.can_convert;$('job-status-label').textContent=labels[j.state];$('job-message').textContent=j.message;$('pause-job').hidden=!['recovering','queued'].includes(j.state);$('cancel-job').hidden=!['queued','recovering','converting'].includes(j.state);$('remove-file').disabled=busy.has(j.state);$('resume-job').hidden=!['paused','error','cancelled'].includes(j.state)||!j.can_resume;const m=j.metrics||{};const percent=j.state==='converting'?(j.export_progress||0):m.total?Math.min(100,m.tested/m.total*100):0;$('job-progress').value=percent;$('speed').textContent=m.speed?(m.speed>=1e6?(m.speed/1e6).toFixed(1)+' MH/s':Math.round(m.speed).toLocaleString()+' H/s'):'—';$('gpu-temp').textContent=m.temperature?m.temperature+' °C':'—';$('percentage').textContent=m.total?percent.toFixed(1)+'%':'—';const warnings=$('warnings');warnings.replaceChildren();for(const warning of [...j.warnings,...(j.info.recovery_note?[j.info.recovery_note]:[])])warnings.append(el('p','',warning));$('page-indicator').textContent=j.has_pdf?`${state.page+1} / ${j.info.pages}`:'—';$('previous-page').disabled=!j.has_pdf||state.page<=0;$('next-page').disabled=!j.has_pdf||state.page>=j.info.pages-1;$('locked-preview').hidden=j.available;$('page-image').hidden=!j.has_pdf;$('contents-preview').hidden=!j.available||j.has_pdf;const entries=$('contents-preview');entries.replaceChildren();for(const item of j.contents||[]){const row=el('div','contents-row');row.append(icon(j.info.format==='zip'?'file':'file-text'),el('span','',item.name));if(item.size!==null)row.append(el('small','',bytes(item.size)));entries.append(row)}if(j.has_pdf){const key=`${j.id}/${state.page}`;if(key!==state.preview){state.preview=key;$('page-image').src=`/api/jobs/${j.id}/preview?page=${state.page}`}}icons()}
 function render(){renderList();renderDetail();icons()}
 async function refresh(){if(state.polling)return;state.polling=true;try{const result=await api('/api/jobs');state.jobs=result.jobs;if(!state.jobs.some(j=>j.id===state.selected))state.selected=null;if(!state.selected&&state.jobs.length)state.selected=state.jobs[0].id;render()}catch(e){toast(e.message)}finally{state.polling=false}}
-async function action(name,data={}){const id=state.selected;try{await api(`/api/jobs/${id}/${name}`,data);$('toast').hidden=true;await refresh()}catch(e){toast(e.message)}}
+async function action(name,data={}){const id=state.selected;if(name==='recover')Object.assign(data,hintFields(),{workload:$('workload').value});try{await api(`/api/jobs/${id}/${name}`,data);$('toast').hidden=true;await refresh()}catch(e){toast(e.message)}}
+function hintFields(){return {numbers:$('hint-numbers').value,separators:$('hint-symbols').value,combine:$('hint-combine').checked,typos:$('hint-typos').checked}}
+let estimateVersion=0, estimateTimer;
+function estimateGuided(){
+  const version=++estimateVersion;
+  clearTimeout(estimateTimer);
+  $('candidate-count').textContent='計算中';
+  $('hint-summary').textContent='';
+  estimateTimer=setTimeout(async()=>{
+    try{
+      const result=await api('/api/recovery/estimate',{strategy:'guided',words:$('words').value,...hintFields()});
+      if(version!==estimateVersion||$('strategy').value!=='guided')return;
+      $('candidate-count').textContent=BigInt(result.candidates).toLocaleString()+' 通り';
+      $('hint-summary').textContent=result.groups.map(g=>g.name+' '+g.count.toLocaleString()).join(' / ');
+    }catch(e){if(version===estimateVersion&&$('strategy').value==='guided'){
+      $('candidate-count').textContent='条件を確認してください';$('hint-summary').textContent=e.message;
+    }}
+  },350);
+}
 function estimate(){
   try {
     const strategy=$('strategy').value, hybrid=strategy.startsWith('hybrid_');
+    if(strategy==='guided'){estimateGuided();return}
     const words=BigInt(new Set($('words').value.split(/\r?\n/).filter(Boolean)).size);
     let count;
     if(strategy==='dictionary'||strategy==='dictionary_rules'){
@@ -42,6 +61,8 @@ function estimate(){
 }
 function strategyChanged(){
   const strategy=$('strategy').value, hybrid=strategy.startsWith('hybrid_');
+  $('guided-fields').hidden=strategy!=='guided';
+  document.querySelector('label[for=words]').textContent=strategy==='guided'?'覚えている単語（1行1件）':'候補リスト（1行1件）';
   $('mask-fields').hidden=strategy!=='mask'&&!hybrid;
   $('dictionary-fields').hidden=strategy==='mask';
   $('fixed-fields').hidden=hybrid;
@@ -61,3 +82,6 @@ $('remove-file').onclick=()=>{const j=job();if(j){$('remove-name').textContent=j
 $('remove-cancel').onclick=()=>$('remove-dialog').close();
 $('remove-confirm').onclick=async()=>{await action('remove');$('remove-dialog').close()};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+$('strategy').add(new Option('手掛かりから順に探索','guided'));
+document.querySelector('.estimate').before($('guided-fields'));
+document.querySelector('.version').textContent='v0.3';

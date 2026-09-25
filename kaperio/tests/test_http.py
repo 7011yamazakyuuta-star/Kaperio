@@ -53,6 +53,16 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request('POST','/api/import',b'not a pdf',headers)[0],400)
         self.assertEqual(self.library.snapshot(),[])
 
+    def test_guided_estimate_requires_auth_and_does_not_store_hints(self):
+        data = json.dumps({'strategy': 'guided', 'words': 'PrivateHint', 'numbers': '2024'})
+        self.assertEqual(self.request('POST', '/api/recovery/estimate', data)[0], 403)
+        headers = {'Cookie': 'kaperio_session=test-capability', 'X-Kaperio': '1'}
+        status, body = self.request('POST', '/api/recovery/estimate', data, headers)
+        self.assertEqual(status, 200)
+        self.assertNotIn(b'PrivateHint', body)
+        self.assertGreater(int(json.loads(body)['candidates']), 1)
+        self.assertFalse(list(Path(self.tmp.name).glob('**/candidates.hex')))
+
     def test_external_settings_without_hashcat(self):
         headers={'Cookie':'kaperio_session=test-capability','X-Kaperio':'1'}
         self.assertEqual(self.request('POST','/api/settings',json.dumps({'hashcat':'','zip2john':''}),headers)[0],200)

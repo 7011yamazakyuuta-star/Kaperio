@@ -1,0 +1,159 @@
+{
+  "checks": [
+    {
+      "kind": "RC4-40",
+      "guided": true,
+      "verified_decryption": true
+    },
+    {
+      "kind": "AES-256",
+      "guided": true,
+      "verified_decryption": true
+    },
+    {
+      "kind": "docx",
+      "guided": true,
+      "verified_decryption": true
+    },
+    {
+      "kind": "zip",
+      "guided": true,
+      "verified_decryption": true
+    },
+    {
+      "guided_stage_resume": true
+    },
+    {
+      "split_long_password_found": true
+    }
+  ],
+  "runs": [
+    {
+      "policy": "previous",
+      "repeat": 1,
+      "seconds": 17.42200000002049,
+      "candidates": 100000,
+      "warnings": [
+        "CUDA\u88dc\u52a9\u30e9\u30a4\u30d6\u30e9\u30ea\u306a\u3057\u3002OpenCL\u3078\u306e\u5207\u308a\u66ff\u3048\u3092\u78ba\u8a8d\u4e2d\u3002",
+        "GPU\u306e\u6e29\u5ea6\u5236\u5fa1\u306b\u3088\u308a\u901f\u5ea6\u304c\u4f4e\u4e0b\u3057\u3066\u3044\u307e\u3059\u3002",
+        "OpenCL\u3067\u5b9f\u884c\u3057\u307e\u3059\u3002CUDA\u306e\u8b66\u544a\u306f\u81f4\u547d\u7684\u30a8\u30e9\u30fc\u3067\u306f\u3042\u308a\u307e\u305b\u3093\u3002",
+        "\u30d5\u30a1\u30f3\u56de\u8ee2\u6570\u306e\u53d6\u5f97\u306b\u975e\u5bfe\u5fdc\u3067\u3059\u3002"
+      ]
+    },
+    {
+      "policy": "split",
+      "repeat": 1,
+      "seconds": 10.531000000075437,
+      "candidates": 100000,
+      "warnings": [
+        "CUDA\u88dc\u52a9\u30e9\u30a4\u30d6\u30e9\u30ea\u306a\u3057\u3002OpenCL\u3078\u306e\u5207\u308a\u66ff\u3048\u3092\u78ba\u8a8d\u4e2d\u3002",
+        "OpenCL\u3067\u5b9f\u884c\u3057\u307e\u3059\u3002CUDA\u306e\u8b66\u544a\u306f\u81f4\u547d\u7684\u30a8\u30e9\u30fc\u3067\u306f\u3042\u308a\u307e\u305b\u3093\u3002",
+        "\u30d5\u30a1\u30f3\u56de\u8ee2\u6570\u306e\u53d6\u5f97\u306b\u975e\u5bfe\u5fdc\u3067\u3059\u3002",
+        "\u5019\u88dc\u6570\u304c\u5c11\u306a\u3044\u305f\u3081GPU\u3092\u4f7f\u3044\u5207\u308c\u307e\u305b\u3093\u3002\u51e6\u7406\u306f\u7d9a\u884c\u3057\u307e\u3059\u3002"
+      ]
+    },
+    {
+      "policy": "split",
+      "repeat": 2,
+      "seconds": 10.577999999979511,
+      "candidates": 100000,
+      "warnings": [
+        "CUDA\u88dc\u52a9\u30e9\u30a4\u30d6\u30e9\u30ea\u306a\u3057\u3002OpenCL\u3078\u306e\u5207\u308a\u66ff\u3048\u3092\u78ba\u8a8d\u4e2d\u3002",
+        "GPU\u306e\u6e29\u5ea6\u5236\u5fa1\u306b\u3088\u308a\u901f\u5ea6\u304c\u4f4e\u4e0b\u3057\u3066\u3044\u307e\u3059\u3002",
+        "OpenCL\u3067\u5b9f\u884c\u3057\u307e\u3059\u3002CUDA\u306e\u8b66\u544a\u306f\u81f4\u547d\u7684\u30a8\u30e9\u30fc\u3067\u306f\u3042\u308a\u307e\u305b\u3093\u3002",
+        "\u30d5\u30a1\u30f3\u56de\u8ee2\u6570\u306e\u53d6\u5f97\u306b\u975e\u5bfe\u5fdc\u3067\u3059\u3002",
+        "\u5019\u88dc\u6570\u304c\u5c11\u306a\u3044\u305f\u3081GPU\u3092\u4f7f\u3044\u5207\u308c\u307e\u305b\u3093\u3002\u51e6\u7406\u306f\u7d9a\u884c\u3057\u307e\u3059\u3002"
+      ]
+    },
+    {
+      "policy": "previous",
+      "repeat": 2,
+      "seconds": 17.29700000002049,
+      "candidates": 100000,
+      "warnings": [
+        "CUDA\u88dc\u52a9\u30e9\u30a4\u30d6\u30e9\u30ea\u306a\u3057\u3002OpenCL\u3078\u306e\u5207\u308a\u66ff\u3048\u3092\u78ba\u8a8d\u4e2d\u3002",
+        "GPU\u306e\u6e29\u5ea6\u5236\u5fa1\u306b\u3088\u308a\u901f\u5ea6\u304c\u4f4e\u4e0b\u3057\u3066\u3044\u307e\u3059\u3002",
+        "OpenCL\u3067\u5b9f\u884c\u3057\u307e\u3059\u3002CUDA\u306e\u8b66\u544a\u306f\u81f4\u547d\u7684\u30a8\u30e9\u30fc\u3067\u306f\u3042\u308a\u307e\u305b\u3093\u3002",
+        "\u30d5\u30a1\u30f3\u56de\u8ee2\u6570\u306e\u53d6\u5f97\u306b\u975e\u5bfe\u5fdc\u3067\u3059\u3002"
+      ]
+    },
+    {
+      "policy": "previous",
+      "repeat": 3,
+      "seconds": 17.34299999999348,
+      "candidates": 100000,
+      "warnings": [
+        "CUDA\u88dc\u52a9\u30e9\u30a4\u30d6\u30e9\u30ea\u306a\u3057\u3002OpenCL\u3078\u306e\u5207\u308a\u66ff\u3048\u3092\u78ba\u8a8d\u4e2d\u3002",
+        "GPU\u306e\u6e29\u5ea6\u5236\u5fa1\u306b\u3088\u308a\u901f\u5ea6\u304c\u4f4e\u4e0b\u3057\u3066\u3044\u307e\u3059\u3002",
+        "OpenCL\u3067\u5b9f\u884c\u3057\u307e\u3059\u3002CUDA\u306e\u8b66\u544a\u306f\u81f4\u547d\u7684\u30a8\u30e9\u30fc\u3067\u306f\u3042\u308a\u307e\u305b\u3093\u3002",
+        "\u30d5\u30a1\u30f3\u56de\u8ee2\u6570\u306e\u53d6\u5f97\u306b\u975e\u5bfe\u5fdc\u3067\u3059\u3002"
+      ]
+    },
+    {
+      "policy": "split",
+      "repeat": 3,
+      "seconds": 10.608999999938533,
+      "candidates": 100000,
+      "warnings": [
+        "CUDA\u88dc\u52a9\u30e9\u30a4\u30d6\u30e9\u30ea\u306a\u3057\u3002OpenCL\u3078\u306e\u5207\u308a\u66ff\u3048\u3092\u78ba\u8a8d\u4e2d\u3002",
+        "GPU\u306e\u6e29\u5ea6\u5236\u5fa1\u306b\u3088\u308a\u901f\u5ea6\u304c\u4f4e\u4e0b\u3057\u3066\u3044\u307e\u3059\u3002",
+        "OpenCL\u3067\u5b9f\u884c\u3057\u307e\u3059\u3002CUDA\u306e\u8b66\u544a\u306f\u81f4\u547d\u7684\u30a8\u30e9\u30fc\u3067\u306f\u3042\u308a\u307e\u305b\u3093\u3002",
+        "\u30d5\u30a1\u30f3\u56de\u8ee2\u6570\u306e\u53d6\u5f97\u306b\u975e\u5bfe\u5fdc\u3067\u3059\u3002",
+        "\u5019\u88dc\u6570\u304c\u5c11\u306a\u3044\u305f\u3081GPU\u3092\u4f7f\u3044\u5207\u308c\u307e\u305b\u3093\u3002\u51e6\u7406\u306f\u7d9a\u884c\u3057\u307e\u3059\u3002"
+      ]
+    }
+  ],
+  "medians": {
+    "previous": 17.34299999999348,
+    "split": 10.577999999979511
+  },
+  "speedup": 1.6395348837234895,
+  "tuning": {
+    "rows": [
+      {
+        "workload": 1,
+        "speed": 51584.0,
+        "temperature": 61,
+        "usable": false,
+        "samples": 6
+      },
+      {
+        "workload": 2,
+        "speed": 52853.0,
+        "temperature": 65,
+        "usable": false,
+        "samples": 6
+      },
+      {
+        "workload": 3,
+        "speed": 69836,
+        "temperature": 63,
+        "usable": false,
+        "samples": 5
+      },
+      {
+        "workload": 3,
+        "speed": 67997.0,
+        "temperature": 64,
+        "usable": false,
+        "samples": 6
+      },
+      {
+        "workload": 2,
+        "speed": 52306.0,
+        "temperature": 65,
+        "usable": false,
+        "samples": 6
+      },
+      {
+        "workload": 1,
+        "speed": 47526.5,
+        "temperature": 65,
+        "usable": false,
+        "samples": 6
+      }
+    ],
+    "complete": true,
+    "workload": 1
+  }
+}

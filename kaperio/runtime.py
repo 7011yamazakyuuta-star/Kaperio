@@ -3,7 +3,7 @@ import os
 import sys
 from pathlib import Path
 
-VERSION = '0.2.0-alpha.1'
+VERSION = '0.3.0-alpha.1'
 APP_DIR = Path(__file__).resolve().parent
 
 
