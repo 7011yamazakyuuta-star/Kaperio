@@ -32,9 +32,27 @@ File ownership and permission are separate from the software license.
   Do not expose the server to the public internet or forward router ports.
 - A launch URL grants full app access, including invoking configured local tools.
   Do not share it with an untrusted person. There is no multi-user permission model.
-- Document parsing and Office conversion are NOT isolated in a hardened sandbox.
+- Document parsing/decryption/rendering now runs in a disposable, resource-limited
+  process. This is NOT a security sandbox: it retains the current OS user's file
+  and network privileges. External Office/LibreOffice conversion is separately
+  time-bounded; it is not covered by the parser's memory budget.
   Avoid untrusted files; keep Python dependencies, Office and GPU drivers updated.
   Disabling macros does not eliminate parser vulnerabilities or active-content risk.
+
+## Resource protection
+
+- Office OOXML and ZIP both enforce 512 MiB expanded size / 10,000 entries.
+  Office manifests and workbook metadata are additionally limited to 16 MiB.
+- One document worker per library, a 2 GiB monitored process-tree RSS budget,
+  120-second normal deadline and 300-second export deadline (including queue wait).
+  Windows also enforces a 2 GiB job-wide committed-memory cap; Linux enforces a
+  4 GiB address-space cap. macOS uses RSS polling, not a hard OS memory cap.
+- Private temporary outputs are committed only after successful worker completion.
+  Passwords are sent over an anonymous pipe, not command-line arguments or request files.
+- HTTP accepts at most 32 concurrent connections. TLS handshakes run off the
+  accept loop with a 5-second timeout; HTTP socket inactivity expires at 30 seconds.
+  These are local-app safeguards, not a public-service security certification.
+- See [hardening scope and limitations](docs/HARDENING.md).
 
 ## Reporting
 

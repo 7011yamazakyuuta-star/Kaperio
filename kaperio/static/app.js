@@ -2,9 +2,9 @@
 const $ = id => document.getElementById(id);
 const MAX_UPLOAD_MB = 200;
 const state = {jobs: [], selected: null, page: 0, tab: 'unlock', mode: 'recover', preview: '', polling: false, connected: true, editing: false, planValid: false};
-const busy = new Set(['queued', 'recovering', 'pausing', 'converting', 'unlocking']);
-const labels = {locked:'未解除',ready:'完了',queued:'待機',recovering:'探索中',pausing:'停止中',paused:'一時停止',converting:'書き出し中',exhausted:'探索完了',error:'要確認',cancelled:'中止',unlocking:'照合中'};
-const statusIcons = {locked:'lock-keyhole',ready:'check',queued:'clock-3',recovering:'loader-circle',pausing:'pause',paused:'pause',converting:'loader-circle',exhausted:'check',error:'triangle-alert',cancelled:'square',unlocking:'loader-circle'};
+const busy = new Set(['queued', 'preparing', 'recovering', 'pausing', 'converting', 'unlocking']);
+const labels = {locked:'未解除',ready:'完了',queued:'待機',preparing:'準備中',recovering:'探索中',pausing:'停止中',paused:'一時停止',converting:'書き出し中',exhausted:'探索完了',error:'要確認',cancelled:'中止',unlocking:'照合中'};
+const statusIcons = {locked:'lock-keyhole',ready:'check',queued:'clock-3',preparing:'loader-circle',recovering:'loader-circle',pausing:'pause',paused:'pause',converting:'loader-circle',exhausted:'check',error:'triangle-alert',cancelled:'square',unlocking:'loader-circle'};
 const kinds = {pdf:'PDF',unlocked:'解除済みファイル',image_pdf:'画像PDF',images:'ページ画像 ZIP',word:'Word・ページ画像',text:'抽出テキスト'};
 const strategies = {automatic:'おまかせ（手掛かりを優先）',guided:'手掛かり',mask:'文字数・文字種',dictionary:'候補リスト',dictionary_rules:'候補＋変形ルール',hybrid_suffix:'候補＋末尾探索',hybrid_prefix:'先頭探索＋候補'};
 const charsetNames = {lower:'英小文字',upper:'英大文字',digits:'数字',symbols:'記号'};
@@ -35,7 +35,7 @@ function fileType(j){
   if(/^\.doc/.test(ext))return ['word','file-text',ext.slice(1).toUpperCase()];
   return ['archive','file-archive',ext.slice(1).toUpperCase()||'FILE'];
 }
-function statusClass(j){return ['recovering','converting','unlocking'].includes(j.state)?' active':j.state==='error'?' warning':''}
+function statusClass(j){return ['preparing','recovering','converting','unlocking'].includes(j.state)?' active':j.state==='error'?' warning':''}
 function statusNode(j){const n=el('span','status'+statusClass(j));n.append(icon(statusIcons[j.state]||'circle'),el('span','',labels[j.state]||j.state));return n}
 function setTab(tab){if(tab==='export'&&!job()?.available)return;state.tab=tab;renderDetail()}
 function selectJob(id){
@@ -208,8 +208,8 @@ function renderDetail(){
   }
   if(changed('status',j.state)){$('job-status-label').className='status'+statusClass(j);$('job-status-label').replaceChildren(icon(statusIcons[j.state]||'circle'),el('span','',labels[j.state]||j.state))}
   $('job-message').textContent=j.message||'';
-  $('pause-job').hidden=!['recovering','queued'].includes(j.state);
-  $('cancel-job').hidden=!['queued','recovering','converting'].includes(j.state);
+  $('pause-job').hidden=!['preparing','recovering','queued'].includes(j.state);
+  $('cancel-job').hidden=!['queued','preparing','recovering','converting','unlocking'].includes(j.state);
   $('cancel-label').textContent=j.state==='converting'?'書き出しを中止':'探索を中止';
   $('remove-file').disabled=busy.has(j.state);
   $('resume-job').hidden=!['paused','error','cancelled'].includes(j.state)||!j.can_resume;
@@ -222,13 +222,28 @@ function renderDetail(){
   $('preview').hidden=!j.available||state.tab!=='unlock';
   $('page-indicator').textContent=j.has_pdf?`${state.page+1} / ${j.info.pages}`:'—';
   $('previous-page').disabled=!j.has_pdf||state.page<=0;$('next-page').disabled=!j.has_pdf||state.page>=j.info.pages-1;
-  $('page-image').hidden=!j.has_pdf;$('contents-preview').hidden=!j.available||j.has_pdf;
+  $('page-image').hidden=!j.has_pdf||!state.previewLoaded;$('contents-preview').hidden=!j.available||j.has_pdf;
+  $('preview-message').hidden=!j.has_pdf||!!state.previewLoaded;$('refresh-preview').disabled=!j.has_pdf;
   if(changed('contents',[j.id,j.contents]))$('contents-preview').replaceChildren(...(j.contents||[]).map(item=>{
     const row=el('div','contents-row');row.append(icon(j.info.format==='zip'?'file':'file-text'),el('span','',item.name));if(item.size!==null)row.append(el('small','',bytes(item.size)));return row;
   }));
-  if(j.has_pdf){const key=`${j.id}/${state.page}`;if(key!==state.preview){state.preview=key;$('page-image').src=`/api/jobs/${j.id}/preview?page=${state.page}`}}
+  if(j.has_pdf){const working=state.jobs.some(item=>['preparing','converting','unlocking'].includes(item.state));const key=`${j.id}/${state.page}/${working}`;if(key!==state.preview)loadPreview(j,key)}
   icons();
 }
+async function loadPreview(j,key){
+  state.preview=key;state.previewLoaded=false;
+  if(state.previewUrl)URL.revokeObjectURL(state.previewUrl);
+  $('page-image').removeAttribute('src');$('page-image').hidden=true;
+  $('preview-message').textContent='読み込み中…';$('preview-message').hidden=false;
+  try{
+    const response=await fetch(`/api/jobs/${j.id}/preview?page=${state.page}`);
+    if(!response.ok){const error=await response.json();throw new Error(error.error||'プレビューを表示できません。')}
+    const blob=await response.blob();if(state.preview!==key)return;
+    state.previewUrl=URL.createObjectURL(blob);$('page-image').src=state.previewUrl;
+    state.previewLoaded=true;$('page-image').hidden=false;$('preview-message').hidden=true;
+  }catch(error){if(state.preview===key){$('preview-message').textContent=error.message;$('preview-message').hidden=false}}
+}
+$('refresh-preview').onclick=()=>{state.preview='';renderDetail()};
 function render(){renderList();renderDetail();icons()}
 async function refresh(){
   if(state.polling)return;state.polling=true;

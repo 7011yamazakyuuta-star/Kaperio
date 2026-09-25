@@ -393,6 +393,14 @@ async function passwordResultChecks(page, context, base, data) {
     await page.locator('#ready-state').waitFor();
     await passwordResultChecks(page,context,base,data);
     await page.waitForFunction(() => document.getElementById('page-image').naturalWidth > 0);
+    await page.route('**/api/jobs/*/preview?*', route=>route.fulfill({status:400,json:{error:'Synthetic preview busy'}}));
+    await page.locator('#refresh-preview').click();
+    await page.locator('#preview-message').filter({hasText:'Synthetic preview busy'}).waitFor();
+    assert.equal(await page.locator('#page-image').isVisible(),false);
+    await page.unroute('**/api/jobs/*/preview?*');
+    await page.locator('#refresh-preview').click();
+    await page.waitForFunction(() => document.getElementById('page-image').naturalWidth > 0 && !document.getElementById('page-image').hidden);
+    console.log(JSON.stringify({previewResiliencePassed:true,checks:['preview-error-retry']}));
     await page.locator('#tab-export').click();
     await page.locator('#export-kind').selectOption('image_pdf');
     await page.locator('#export-form button[type=submit]').click();

@@ -24,7 +24,7 @@ class StreamingTests(unittest.TestCase):
             content = b'x' * (3 * TRANSFER_CHUNK + 7)
             info = {'format': 'pdf', 'extension': '.pdf', 'empty_password': False}
             try:
-                with patch('app.inspect_file', return_value=info) as inspect:
+                with patch.object(library.documents, 'inspect_file', return_value=info) as inspect:
                     first = library.import_stream('test.pdf', BoundedReader(content), len(content))
                     second = library.import_stream('again.pdf', BoundedReader(content), len(content))
                     self.assertEqual(first, second)
@@ -44,8 +44,9 @@ class StreamingTests(unittest.TestCase):
             content = source.read_bytes()
             try:
                 for target, failure in (('inspect_file', ValueError('parse')), ('disk_usage', OSError(errno.ENOSPC, 'full'))):
-                    patch_target = 'app.inspect_file' if target == 'inspect_file' else 'app.shutil.disk_usage'
-                    with patch(patch_target, side_effect=failure), self.assertRaises((ValueError, OSError)):
+                    mocked = (patch.object(library.documents, 'inspect_file', side_effect=failure)
+                              if target == 'inspect_file' else patch('app.shutil.disk_usage', side_effect=failure))
+                    with mocked, self.assertRaises((ValueError, OSError)):
                         library.import_stream('valid.pdf', BoundedReader(content), len(content))
                     self.assertEqual(list(library.root.iterdir()), [])
                 with patch.object(library, 'save', side_effect=OSError(errno.ENOSPC, 'full')), self.assertRaises(OSError):

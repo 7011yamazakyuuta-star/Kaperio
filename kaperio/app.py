@@ -20,27 +20,27 @@ import uuid
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
 from http.cookies import SimpleCookie
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
-from pypdf import PdfReader
-
-from pdf_tools import export_pdf, preview_png
+from document_worker import DocumentWorker
+from local_server import LocalHTTPServer
 from recovery import CREATE_FLAGS, WORD_STRATEGIES, clear_execution, has_checkpoint, run_hashcat, validate_plan, write_inputs
-from formats import SUPPORTED, contents, get_hash, inspect_file, unlock_file, office_renderer, render_office, discover_zip2john
+from formats import SUPPORTED, office_renderer, render_office, discover_zip2john
 from runtime import APP_DIR, APP_NAME, VERSION, data_directory, engine_environment
 from environment_setup import SetupManager
 
 DEFAULT_DATA = data_directory()
-BUSY = {'queued', 'recovering', 'pausing', 'converting', 'unlocking'}
+BUSY = {'queued', 'preparing', 'recovering', 'pausing', 'converting', 'unlocking'}
 MAX_UPLOAD_MB = 200
 MAX_UPLOAD = MAX_UPLOAD_MB * 1024 * 1024
 TRANSFER_CHUNK = 1024 * 1024
 UPLOAD_TIMEOUT = 30
 DISK_RESERVE = 64 * 1024 * 1024
-RUNNING = {'recovering', 'converting', 'unlocking', 'pausing'}
+RUNNING = {'preparing', 'recovering', 'converting', 'unlocking', 'pausing'}
 EVENT_LABELS = {
+    'preparing': '探索の準備を開始しました。',
     'queued': '探索を待機しています。', 'recovering': '探索を開始しました。',
     'pausing': '停止処理を開始しました。', 'paused': '探索を一時停止しました。',
     'converting': '書き出しを開始しました。', 'unlocking': 'ファイルを照合しています。',
@@ -119,6 +119,7 @@ class Library:
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.lock = threading.RLock()
         self.import_lock = threading.Lock()
+        self.documents = DocumentWorker(self.root)
         self.jobs = {}
         self.stops = {}
         self.passwords = {}
@@ -176,13 +177,13 @@ class Library:
                     'output_dir': str(self.root), 'version': VERSION,
                     'hashcat_configured': bool(self.hashcat and self.hashcat.is_file()),
                     'zip2john_configured': bool(self.zip2john and self.zip2john.is_file()),
-                    'settings_locked': self.setup.busy or any(j['state'] in {'recovering', 'queued', 'pausing'} for j in self.jobs.values())}
+                    'settings_locked': self.setup.busy or any(j['state'] in {'preparing', 'recovering', 'queued', 'pausing'} for j in self.jobs.values())}
 
     def save_settings(self, data, _setup=False):
         with self.lock:
             if self.setup.busy and not _setup:
                 raise ValueError('診断・導入が終わってから設定を変更してください。')
-            if any(j['state'] in {'recovering', 'queued', 'pausing'} for j in self.jobs.values()):
+            if any(j['state'] in {'preparing', 'recovering', 'queued', 'pausing'} for j in self.jobs.values()):
                 raise ValueError('探索を停止してから設定を変更してください。')
             candidate = tool_path(data.get('hashcat', self.hashcat), 'hashcat')
             zip2john = tool_path(data.get('zip2john', self.zip2john), 'zip2john')
@@ -190,9 +191,17 @@ class Library:
             temporary.write_text(json.dumps({'hashcat': str(candidate or ''), 'zip2john': str(zip2john or '')}), encoding='utf-8')
             temporary.replace(self.root / 'settings.json')
             self.hashcat, self.zip2john = candidate, zip2john
-            for job in self.jobs.values():
-                if job['info']['format'] == 'zip' and not job.get('unlocked'):
-                    job['info'] = inspect_file(self.folder(job['id']) / job['source'], '.zip', zip2john)
+            refresh = [job for job in self.jobs.values()
+                       if job['info']['format'] == 'zip' and not job.get('unlocked') and job['state'] not in BUSY]
+        for job in refresh:
+            try:
+                info = self.documents.inspect_file(self.root / job['id'] / job['source'], '.zip', zip2john)
+            except (ValueError, OSError, InterruptedError):
+                continue
+            with self.lock:
+                if (self.jobs.get(job['id']) is job and self.zip2john == zip2john
+                        and job['state'] not in BUSY and not job.get('unlocked')):
+                    job['info'] = info
                     self.save(job)
 
     def folder(self, job_id):
@@ -284,7 +293,7 @@ class Library:
                         if job['sha256'] == digest:
                             return job['id']
                 try:
-                    info = inspect_file(source, extension, self.zip2john)
+                    info = self.documents.inspect_file(source, extension, self.zip2john)
                 except Exception as exc:
                     raise ValueError('ファイルを読み取れませんでした: ' + str(exc)) from exc
                 job_id = uuid.uuid4().hex
@@ -327,15 +336,16 @@ class Library:
         folder = self.folder(job_id)
         job = self.jobs[job_id]
         target = folder / ('unlocked' + job['info']['extension'])
-        pages = unlock_file(folder / job['source'], password, target, job['info'])
+        result = self.documents.unlock_file(folder / job['source'], password, target, job['info'],
+                                            self.stops[job_id].is_set)
         with self.lock:
-            job['info']['pages'] = pages
+            job['info']['pages'] = result['pages']
             job['unlocked'] = target.name
             self.add_output(job_id, target, 'unlocked')
             if password:
                 self.passwords[job_id] = password.decode('utf-8', errors='replace') if isinstance(password, bytes) else password
             if job['info']['format'] != 'pdf':
-                job['contents'] = contents(target, job['info'])
+                job['contents'] = result['contents']
             self.update(job_id, state='ready', message='パスワードなしのファイルを保存しました。')
 
     def known_password(self, job_id, password):
@@ -344,9 +354,12 @@ class Library:
             if job['state'] in BUSY:
                 raise ValueError('実行中の処理が完了してから操作してください。')
             previous = job['state']
+            self.stops[job_id] = threading.Event()
             self.update(job_id, state='unlocking', message='パスワードを照合しています。')
         try:
             self._unlock(job_id, password)
+        except InterruptedError:
+            self.update(job_id, state=previous, message='開封を中止しました。', cancel_requested=False)
         except Exception:
             self.update(job_id, state=previous)
             raise
@@ -363,24 +376,39 @@ class Library:
             if not job['info']['recoverable']:
                 raise ValueError('この暗号方式の復元には対応していません。')
             folder = self.folder(job_id)
+            if resume and not job.get('plan'):
+                raise ValueError('再開できる探索がありません。')
+            saved_plan = dict(job['plan']) if resume else None
+            info, hashcat, zip2john = dict(job['info']), self.hashcat, self.zip2john
+            stop = threading.Event()
+            self.stops[job_id] = stop
+            self.update(job_id, state='preparing', message='探索を準備しています。', cancel_requested=False)
+        try:
             if resume:
-                if not job.get('plan'):
-                    raise ValueError('再開できる探索がありません。')
-                plan = dict(job['plan'])
+                plan = saved_plan
                 if plan['strategy'] in WORD_STRATEGIES | {'automatic'}:
                     plan['words'] = [bytes.fromhex(s).decode('utf-8') for s in (folder / 'candidates.hex').read_text().splitlines()]
             else:
-                plan = validate_plan(data, job['info'].get('mode'))
+                plan = validate_plan(data, info.get('mode'))
                 clear_execution(folder)
-            hash_value, mode = get_hash(folder / job['source'], job['info'], self.hashcat, self.zip2john)
+            hash_value, mode = self.documents.get_hash(folder / job['source'], info, hashcat, zip2john, stop.is_set)
+            if stop.is_set():
+                raise InterruptedError()
             (folder / 'source.hash').write_text(hash_value + '\n', encoding='ascii')
             write_inputs(folder, plan)
-            stop = threading.Event()
-            self.stops[job_id] = stop
-            self.update(job_id, state='queued', message='探索待ちです。', metrics={}, warnings=[],
-                        plan={k: v for k, v in plan.items() if k != 'words'}, candidates=plan['candidates'],
-                        elapsed=job.get('elapsed', 0) if resume else 0)
-            self.recovery_pool.submit(self._recover, job_id, mode, plan, resume, stop)
+            with self.lock:
+                if stop.is_set():
+                    raise InterruptedError()
+                self.update(job_id, state='queued', message='探索待ちです。', metrics={}, warnings=[],
+                            plan={k: v for k, v in plan.items() if k != 'words'}, candidates=plan['candidates'],
+                            elapsed=job.get('elapsed', 0) if resume else 0)
+                self.recovery_pool.submit(self._recover, job_id, mode, plan, resume, stop)
+        except InterruptedError:
+            self.update(job_id, state='cancelled' if job.get('cancel_requested') else 'paused',
+                        message='探索の準備を中止しました。', cancel_requested=False)
+        except Exception as exc:
+            self.update(job_id, state='error', message='探索の準備に失敗しました: ' + str(exc))
+            raise
 
     def _recover(self, job_id, mode, plan, resume, stop):
         with self.lock:
@@ -406,6 +434,8 @@ class Library:
                     message = '時間上限に達したため停止しました。'
                 message += ' 保存地点から再開できます。' if result.get('checkpoint') else ' 保存地点がないため、再開時は候補の最初から探索します。'
                 self.update(job_id, state='paused', message=message)
+        except InterruptedError:
+            self.update(job_id, state='cancelled', message='開封を中止しました。')
         except Exception as exc:
             self.update(job_id, state='error', message=str(exc))
         finally:
@@ -414,7 +444,7 @@ class Library:
     def stop(self, job_id, cancel=False):
         with self.lock:
             job = self.jobs[job_id]
-            if job['state'] not in {'queued', 'recovering', 'pausing', 'converting'}:
+            if job['state'] not in {'queued', 'preparing', 'recovering', 'pausing', 'converting', 'unlocking'}:
                 raise ValueError('実行中の処理がありません。')
             self.stops[job_id].set()
             state = 'cancelled' if cancel else 'paused'
@@ -451,7 +481,9 @@ class Library:
                 source = folder / 'rendered.pdf'
                 if not source.exists():
                     self.update(job_id, message='Microsoft OfficeでPDFを生成しています。')
-                    pages = render_office(folder / job['unlocked'], source, self.stops[job_id].is_set)
+                    pages = render_office(folder / job['unlocked'], source, self.stops[job_id].is_set,
+                                          inspect=lambda path: self.documents.inspect_file(
+                                              path, '.pdf', cancelled=self.stops[job_id].is_set))
                     with self.lock:
                         job['info']['pages'] = pages
                         job['rendered'] = source.name
@@ -462,7 +494,7 @@ class Library:
                 if job['info']['format'] == 'pdf':
                     shutil.copyfile(source, target)
             else:
-                export_pdf(source, target, kind, dpi, gray,
+                self.documents.export_pdf(source, target, kind, dpi, gray,
                        lambda n, total: self.update(job_id, export_progress=n / total * 100,
                                                    message=f'{n} / {total} ページを書き出しています。'),
                        self.stops[job_id].is_set)
@@ -478,6 +510,7 @@ class Library:
         self.setup.close()
         for event in self.stops.values():
             event.set()
+        self.documents.close()
         self.recovery_pool.shutdown(wait=True)
         self.export_pool.shutdown(wait=True)
 
@@ -592,7 +625,7 @@ class Handler(BaseHTTPRequestHandler):
             if action == 'preview' and job.get('unlocked') and (job['info']['format'] == 'pdf' or job.get('rendered')):
                 page = int(parse_qs(url.query).get('page', ['0'])[0])
                 source = job.get('rendered') or job['unlocked']
-                self.send_data(200, preview_png(folder / source, page), 'image/png')
+                self.send_data(200, self.library.documents.preview_png(folder / source, page), 'image/png')
             elif action == 'download' and len(parts) == 5:
                 name = unquote(parts[4])
                 if name not in [o['file'] for o in job['outputs']]:
@@ -637,6 +670,7 @@ class Handler(BaseHTTPRequestHandler):
                 job_id = self.library.import_stream(unquote(self.headers.get('X-Filename', 'document.pdf')), self.rfile, length)
                 self.send_data(200, {'id': job_id})
                 return
+            self.connection.settimeout(UPLOAD_TIMEOUT)
             body = self.rfile.read(length)
             data = json.loads(body)
             if not isinstance(data, dict):
@@ -755,7 +789,7 @@ def main():
     server = None
     for port in range(args.port, args.port + 20):
         try:
-            server = ThreadingHTTPServer((args.host, port), Handler)
+            server = LocalHTTPServer((args.host, port), Handler)
             break
         except OSError:
             continue
@@ -767,7 +801,7 @@ def main():
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(args.tls_cert, args.tls_key)
-        server.socket = context.wrap_socket(server.socket, server_side=True)
+        server.tls_context = context
     server.authority = f'{args.host}:{server.server_port}'
     server.origin = ('https' if server.tls else 'http') + '://' + server.authority
     server.daemon_threads = True

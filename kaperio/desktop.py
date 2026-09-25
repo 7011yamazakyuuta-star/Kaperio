@@ -11,6 +11,10 @@ from runtime import APP_DIR, data_directory
 
 
 def main():
+    if len(sys.argv) == 2 and sys.argv[1] == '--document-worker':
+        from document_worker import worker_main
+        worker_main()
+        return 0
     if len(sys.argv) == 3 and sys.argv[1] == '--self-check':
         try:
             from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes

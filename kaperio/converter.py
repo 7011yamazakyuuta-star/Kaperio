@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -37,7 +38,8 @@ def run_converter(args, folder, cancelled=lambda: False, timeout=120):
     failure = None
     with log_path.open('wb') as log:
         process = subprocess.Popen(args, stdout=log, stderr=subprocess.STDOUT,
-                                   stdin=subprocess.DEVNULL, creationflags=CREATE_FLAGS)
+                                   stdin=subprocess.DEVNULL, creationflags=CREATE_FLAGS,
+                                   start_new_session=os.name != 'nt')
         try:
             while process.poll() is None:
                 if cancelled():
@@ -45,6 +47,9 @@ def run_converter(args, folder, cancelled=lambda: False, timeout=120):
                     break
                 if time.monotonic() - started > timeout:
                     failure = 'timeout'
+                    break
+                if log_path.stat().st_size > 8 * 1024 * 1024:
+                    failure = 'log_limit'
                     break
                 time.sleep(.15)
         finally:
@@ -57,6 +62,11 @@ def run_converter(args, folder, cancelled=lambda: False, timeout=120):
                                        timeout=5, creationflags=CREATE_FLAGS)
                     except subprocess.TimeoutExpired:
                         pass
+                else:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
                 if process.poll() is None:
                     process.terminate()
                 try:
@@ -66,7 +76,11 @@ def run_converter(args, folder, cancelled=lambda: False, timeout=120):
                     process.wait(timeout=5)
             if failure:
                 cleanup_office(state_path)
-    output = log_path.read_bytes()[-8000:].decode('utf-8', errors='replace')
+    with log_path.open('rb') as log:
+        log.seek(max(0, log_path.stat().st_size - 8000))
+        output = log.read(8000).decode('utf-8', errors='replace')
+    if failure == 'log_limit':
+        raise ValueError('Office変換のログが上限を超えたため停止しました。')
     if failure == 'cancelled':
         raise InterruptedError('書き出しを中止しました。')
     if failure == 'timeout':

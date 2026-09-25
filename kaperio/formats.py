@@ -25,6 +25,7 @@ OFFICE_EXT = {'.xlsx', '.pptx', '.docx', '.xlsm', '.pptm', '.docm'}
 SUPPORTED = OFFICE_EXT | {'.pdf', '.zip'}
 MAX_EXPANDED = 512 * 1024 * 1024
 MAX_ENTRIES = 10000
+MAX_METADATA = 16 * 1024 * 1024
 
 
 def office_renderer(extension):
@@ -41,7 +42,7 @@ def office_renderer(extension):
         return False
 
 
-def render_office(source, target, cancelled=lambda: False):
+def render_office(source, target, cancelled=lambda: False, inspect=inspect_pdf):
     if not office_renderer(source.suffix):
         raise ValueError('PDF変換には対応するMicrosoft Officeのインストールが必要です。')
     temporary = target.with_name('office-rendering.pdf')
@@ -65,13 +66,13 @@ def render_office(source, target, cancelled=lambda: False):
                           target.parent, cancelled)
         if not temporary.exists():
             raise ValueError('OfficeのPDF変換に失敗しました。Officeのライセンスとファイル内容を確認してください。')
-        reader = PdfReader(temporary)
-        if reader.is_encrypted or not len(reader.pages):
+        info = inspect(temporary)
+        if info['encrypted'] or not info['pages']:
             raise ValueError('Office出力のPDFを検証できませんでした。')
         if cancelled():
             raise InterruptedError('書き出しを中止しました。')
         temporary.replace(target)
-        return len(reader.pages)
+        return info['pages']
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -85,6 +86,23 @@ def validate_entries(entries):
             raise ValueError('ZIP内に安全に扱えないファイル名があります。')
         if stat.S_ISLNK(item.external_attr >> 16):
             raise ValueError('シンボリックリンクを含むZIPは未対応です。')
+
+
+def validate_office(archive):
+    validate_entries(archive.infolist())
+    if '[Content_Types].xml' not in archive.namelist():
+        raise ValueError('Office文書の構成が不正です。')
+    for name in ('[Content_Types].xml', 'xl/workbook.xml'):
+        if name in archive.namelist() and archive.getinfo(name).file_size > MAX_METADATA:
+            raise ValueError('Office文書のメタデータが上限（16MB）を超えています。')
+
+
+def read_xml(archive, name):
+    with archive.open(name) as stream:
+        raw = stream.read(MAX_METADATA + 1)
+    if len(raw) > MAX_METADATA:
+        raise ValueError('Office文書のXMLが上限（16MB）を超えています。')
+    return ElementTree.fromstring(raw)
 
 
 def office_hash(source):
@@ -159,6 +177,9 @@ def inspect_file(source, extension, zip2john=None):
             except ValueError as exc:
                 info['recovery_note'] = str(exc)
     elif extension in OFFICE_EXT:
+        if zipfile.is_zipfile(source):
+            with zipfile.ZipFile(source) as archive:
+                validate_office(archive)
         with open(source, 'rb') as stream:
             office = msoffcrypto.OfficeFile(stream)
             encrypted = office.is_encrypted()
@@ -203,6 +224,9 @@ def unlock_file(source, password, target, info):
     temporary = target.with_suffix('.partial')
     try:
         if info['format'] == 'office':
+            if zipfile.is_zipfile(source):
+                with zipfile.ZipFile(source) as archive:
+                    validate_office(archive)
             if isinstance(password, bytes):
                 password = password.decode('utf-8')
             with open(source, 'rb') as stream:
@@ -214,7 +238,8 @@ def unlock_file(source, password, target, info):
                 else:
                     shutil.copyfile(source, temporary)
             with zipfile.ZipFile(temporary) as archive:
-                if '[Content_Types].xml' not in archive.namelist() or archive.testzip():
+                validate_office(archive)
+                if archive.testzip():
                     raise ValueError('解除後のOffice文書を検証できませんでした。')
         else:
             pwd = password.encode('utf-8') if isinstance(password, str) else password
@@ -247,11 +272,12 @@ def unlock_file(source, password, target, info):
 
 def contents(source, info):
     with zipfile.ZipFile(source) as archive:
+        validate_entries(archive.infolist())
         if info['format'] == 'zip':
             return [{'name': i.filename, 'size': i.file_size} for i in archive.infolist()][:1000]
         names = archive.namelist()
         if 'xl/workbook.xml' in names:
-            root = ElementTree.fromstring(archive.read('xl/workbook.xml'))
+            root = read_xml(archive, 'xl/workbook.xml')
             return [{'name': e.attrib['name'], 'size': None} for e in root.iter() if e.tag.endswith('}sheet')]
         if 'ppt/presentation.xml' in names:
             pages = sorted(n for n in names if re.fullmatch(r'ppt/slides/slide\d+\.xml', n))
@@ -261,9 +287,10 @@ def contents(source, info):
 
 def office_text(source):
     with zipfile.ZipFile(source) as archive:
+        validate_office(archive)
         names = [n for n in archive.namelist() if n in ('word/document.xml', 'xl/sharedStrings.xml') or re.fullmatch(r'ppt/slides/slide\d+\.xml', n)]
         result = []
         for name in names:
-            root = ElementTree.fromstring(archive.read(name))
+            root = read_xml(archive, name)
             result.append('## ' + name + '\n\n' + '\n'.join(e.text for e in root.iter() if e.tag.endswith('}t') and e.text))
         return '\n\n'.join(result)

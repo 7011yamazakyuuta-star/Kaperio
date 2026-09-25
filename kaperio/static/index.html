@@ -109,8 +109,8 @@
             <h3 class="output-heading">保存済みファイル</h3><div id="outputs"></div>
           </div>
           <section id="preview" class="preview" aria-label="開封済みファイルのプレビュー" hidden>
-            <div class="preview-toolbar"><span>プレビュー</span><div class="page-controls"><button class="icon quiet" id="previous-page" title="前のページ" aria-label="前のページ"><i data-lucide="chevron-left"></i></button><span id="page-indicator">—</span><button class="icon quiet" id="next-page" title="次のページ" aria-label="次のページ"><i data-lucide="chevron-right"></i></button></div></div>
-            <div class="preview-body"><div id="contents-preview" hidden></div><img id="page-image" alt="選択したPDFのページ" hidden></div>
+            <div class="preview-toolbar"><span>プレビュー</span><div class="page-controls"><button class="icon quiet" id="refresh-preview" title="プレビューを再読み込み" aria-label="プレビューを再読み込み"><i data-lucide="refresh-cw"></i></button><button class="icon quiet" id="previous-page" title="前のページ" aria-label="前のページ"><i data-lucide="chevron-left"></i></button><span id="page-indicator">—</span><button class="icon quiet" id="next-page" title="次のページ" aria-label="次のページ"><i data-lucide="chevron-right"></i></button></div></div>
+            <div class="preview-body"><div id="contents-preview" hidden></div><p id="preview-message" role="status" hidden></p><img id="page-image" alt="選択したPDFのページ" hidden></div>
           </section>
         </section>
         <aside class="inspector" aria-label="実行状況">
