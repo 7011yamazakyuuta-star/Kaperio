@@ -1,4 +1,4 @@
-# Loxmit Desktop 0.4.0-alpha.5
+# Loxmit Desktop 0.4.0-alpha.6
 
 Formerly Kaperio. The repository URL, internal source directory, legacy launchers,
 and Hashcat session identifiers are intentionally unchanged. This preserves links
@@ -53,6 +53,12 @@ directory exists and the new Loxmit directory does not, it is reused in place.
 Nothing is automatically moved or deleted. Renaming Hiraku does not
 automatically move or delete old user data; use `--data` explicitly to reuse an old library.
 The original documents are not modified. Use the app's power button to stop its service.
+
+After opening a protected document, its password is visible in a prominent result
+field by default. Copy is an explicit action, with success or failure feedback;
+the eye control optionally hides the value. Hiding it does not disable copying.
+The result remains transient: no password persistence is added, and restarting
+the service clears the in-memory password even when an unlocked file is retained.
 
 New libraries start with zero files. Demo documents and browser test fixtures are
 not bundled or imported at startup. Development/test libraries are never selected

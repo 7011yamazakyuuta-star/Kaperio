@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0-alpha.5",
+  "version": "0.4.0-alpha.6",
   "files": [
     ".gitignore", "LICENSE", "README.md", "Setup.cmd", "Kaperio.cmd", "Loxmit.cmd",
     ".github/workflows/desktop.yml",

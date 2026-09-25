@@ -117,3 +117,33 @@ Local verification on Windows 11, 2026-09-25:
 These are bounded functional checks, not a speed benchmark or proof of recovery
 without clues. Native macOS/Linux validation belongs to the CI run for this
 revision; earlier green runs do not validate this change.
+
+## Visible password result (0.4.0-alpha.6)
+
+The completed result now has a labelled, selectable, read-only password field
+above the download action. It is visible by default, in 20px monospace text.
+An explicit Copy button reports success or failure; the optional eye control
+hides the value without preventing copying. A denied clipboard operation never
+unhides a hidden password. Copy preserves whitespace, Unicode and long values.
+
+The UI fetches the current result once, not on every status poll. Changing files
+clears the field immediately and rejects stale responses. Fetch failures show a
+retry action; unavailable passwords have no result panel. No password is added
+to persistent storage, public job summaries, logs or generated release files.
+
+Local Windows verification on 2026-09-25:
+
+- 61 unit/HTTP tests passed, plus 22 frozen-EXE integration checks.
+- All 38 browser acceptance groups passed against source and the final alpha.6
+  EXE, with no page JavaScript errors. The additional cases cover visible results,
+  exact copying, denied copying, stale responses, retry, long text and clearing.
+- Result layouts were checked at 320, 390, 768 and 1440px without page overflow
+  or overlapping controls. Desktop and 320px screenshots were visually reviewed.
+- Clipboard acceptance uses a page-local mock, not the user's system clipboard.
+  Synthetic documents and password fixtures are used throughout these tests.
+- The running local installation received only the three static UI files, with
+  backups. Its service was not restarted, preserving its in-memory result. Its
+  backend version remains alpha.5; the new distributable is alpha.6.
+
+This revision changes presentation only. Native macOS/Linux build results must
+be checked for this revision separately; no new GPU performance claim is made.

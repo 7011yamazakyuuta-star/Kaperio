@@ -43,9 +43,16 @@
           </div>
           <div id="unlock-panel" role="tabpanel" aria-labelledby="tab-unlock">
             <div id="ready-state" hidden>
-              <div class="success-title"><i data-lucide="check"></i><h3>開封済み</h3></div>
-              <div class="inline-actions"><a class="primary" id="unlocked-download"><i data-lucide="download"></i><span id="download-label">解除済みファイル</span></a><button class="icon quiet" id="reveal-password" title="復元したパスワードを表示" aria-label="復元したパスワードを表示"><i data-lucide="eye"></i></button></div>
-              <output id="password-result" hidden></output>
+              <div class="success-title"><i data-lucide="check"></i><h3>ロック解除完了</h3></div>
+              <section id="password-result-panel" class="password-result-panel" aria-labelledby="password-result-label" hidden>
+                <label id="password-result-label" for="password-result">開封に使ったパスワード</label>
+                <div class="password-result-row">
+                  <div class="password-result-field"><input id="password-result" type="text" readonly autocomplete="off" spellcheck="false" aria-describedby="password-feedback"><button type="button" class="icon quiet" id="reveal-password" title="パスワードを隠す" aria-label="パスワードを隠す"><i data-lucide="eye-off"></i></button></div>
+                  <button type="button" id="copy-password"><i data-lucide="copy"></i><span>コピー</span></button>
+                </div>
+                <div class="password-result-status"><span id="password-feedback" role="status" aria-live="polite"></span><button type="button" id="retry-password" class="quiet" hidden><i data-lucide="rotate-cw"></i>再取得</button></div>
+              </section>
+              <div class="inline-actions"><a class="primary" id="unlocked-download"><i data-lucide="download"></i><span id="download-label">パスワードなしで保存</span></a></div>
             </div>
             <div id="locked-state">
               <div class="segmented" role="group" aria-label="パスワードの状況"><button id="recover-mode" class="selected" aria-pressed="true">パスワードを探す</button><button id="known-mode" aria-pressed="false">パスワードが分かる</button></div>

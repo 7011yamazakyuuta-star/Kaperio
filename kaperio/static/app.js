@@ -10,6 +10,7 @@ const strategies = {automatic:'おまかせ（手掛かりを優先）',guided:'
 const charsetNames = {lower:'英小文字',upper:'英大文字',digits:'数字',symbols:'記号'};
 const renderKeys = new Map();
 const drafts = new Map();
+let passwordResult={id:null,phase:'empty',value:'',hidden:false,message:'',error:false,copying:false},passwordRequest=0;
 function icons(){lucide.createIcons({attrs:{'stroke-width':1.7}})}
 function el(tag, cls, text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n}
 function icon(name){const n=el('i');n.dataset.lucide=name;return n}
@@ -46,7 +47,7 @@ function selectJob(id){
     for(const [index,saved] of (drafts.get(id)||[]).entries()){const n=fields[index];n.value=saved.value;if(n.type==='checkbox')n.checked=saved.checked}
     state.hybrid=selectedStrategy().startsWith('hybrid_');
     strategyChanged();
-    $('password').value='';$('password').type='password';$('password-result').textContent='';$('password-result').hidden=true;
+    $('password').value='';$('password').type='password';resetPasswordResult();
     $('job-progress').classList.add('changed');
     requestAnimationFrame(()=>requestAnimationFrame(()=>$('job-progress').classList.remove('changed')));
   }
@@ -140,6 +141,45 @@ function renderEvents(j){
   if(!rows.length)rows.push(el('li','muted','記録はありません'));
   list.replaceChildren(...rows);if(atBottom)list.scrollTop=list.scrollHeight;
 }
+function resetPasswordResult(){
+  ++passwordRequest;passwordResult={id:null,phase:'empty',value:'',hidden:false,message:'',error:false,copying:false};
+  $('password-result').value='';$('password-result').type='text';$('password-result-panel').hidden=true;
+}
+function renderPasswordResult(j){
+  const available=!!(j?.available&&j.has_password);
+  $('password-result-panel').hidden=!available;
+  if(!available){if(passwordResult.id!==null)resetPasswordResult();return}
+  if(passwordResult.id!==j.id){loadPasswordResult(j.id);return}
+  const ready=passwordResult.phase==='ready';
+  const field=$('password-result'),value=ready?passwordResult.value:'';
+  if(field.value!==value)field.value=value;
+  const type=passwordResult.hidden?'password':'text';if(field.type!==type)field.type=type;field.disabled=!ready;
+  field.placeholder=passwordResult.phase==='loading'?'取得中…':'取得できませんでした';
+  $('copy-password').disabled=!ready||passwordResult.copying;
+  $('reveal-password').disabled=!ready;
+  const visibilityLabel=passwordResult.hidden?'パスワードを表示':'パスワードを隠す';
+  if($('reveal-password').title!==visibilityLabel){
+    $('reveal-password').title=visibilityLabel;$('reveal-password').setAttribute('aria-label',visibilityLabel);
+    $('reveal-password').replaceChildren(icon(passwordResult.hidden?'eye':'eye-off'));icons();
+  }
+  $('password-feedback').textContent=passwordResult.message;
+  $('password-feedback').classList.toggle('field-error',passwordResult.error);
+  $('retry-password').hidden=passwordResult.phase!=='error';
+}
+async function loadPasswordResult(id){
+  const request=++passwordRequest;
+  passwordResult={id,phase:'loading',value:'',hidden:false,message:'',error:false,copying:false};renderPasswordResult(job());
+  try{
+    const result=await api(`/api/jobs/${id}/password`,{});
+    if(request!==passwordRequest||state.selected!==id||!job()?.has_password)return;
+    if(typeof result.password!=='string'||!result.password)throw Error('No password available');
+    passwordResult.value=result.password;passwordResult.phase='ready';
+  }catch{
+    if(request!==passwordRequest||state.selected!==id)return;
+    passwordResult.phase='error';passwordResult.message='パスワードを取得できませんでした。';passwordResult.error=true;
+  }
+  if(request===passwordRequest&&state.selected===id)renderPasswordResult(job());
+}
 function renderDetail(){
   const j=job();$('empty').hidden=!!j;$('document').hidden=!j;if(!j)return;
   const [type,glyph,extension]=fileType(j);
@@ -155,7 +195,7 @@ function renderDetail(){
   for(const mode of ['known','recover']){$(mode+'-mode').classList.toggle('selected',state.mode===mode);$(mode+'-mode').setAttribute('aria-pressed',String(state.mode===mode));$(mode+'-mode').disabled=busy.has(j.state)}
   $('edit-plan').hidden=busy.has(j.state);renderSummary(j);
   const download=`/api/jobs/${j.id}/download/unlocked${j.info.extension}`;
-  $('unlocked-download').href=download;$('download-label').textContent='解除済み '+extension;$('reveal-password').hidden=!j.has_password;
+  $('unlocked-download').href=download;$('download-label').textContent='パスワードなしで保存';renderPasswordResult(j);
   for(const form of ['known-form','recovery-form','export-form'])for(const n of $(form).querySelectorAll('input,select,textarea,button'))n.disabled=busy.has(j.state)||form==='export-form'&&!j.available;
   recoveryControls();
   $('export-form').hidden=!j.can_convert;
@@ -273,9 +313,21 @@ $('word-file').onchange=async()=>{const f=$('word-file').files[0];if(f){if(f.siz
 for(const [id,name] of [['pause-job','pause'],['resume-job','resume'],['cancel-job','cancel']])$(id).onclick=()=>action(name);
 $('previous-page').onclick=()=>{state.page--;renderDetail()};$('next-page').onclick=()=>{state.page++;renderDetail()};
 $('page-image').onerror=()=>toast('プレビューを生成できませんでした。');
-$('reveal-password').onclick=async()=>{
-  if(!$('password-result').hidden){$('password-result').hidden=true;$('password-result').textContent='';return}
-  const id=state.selected;try{const r=await api(`/api/jobs/${id}/password`,{});if(state.selected===id){$('password-result').textContent=r.password;$('password-result').hidden=false}}catch(e){toast(e.message)}
+$('reveal-password').onclick=()=>{if(passwordResult.phase==='ready'){passwordResult.hidden=!passwordResult.hidden;renderPasswordResult(job())}};
+$('retry-password').onclick=()=>{if(job()?.has_password)loadPasswordResult(state.selected)};
+$('copy-password').onclick=async()=>{
+  if(passwordResult.phase!=='ready'||passwordResult.id!==state.selected||passwordResult.copying)return;
+  const id=state.selected,request=passwordRequest,value=passwordResult.value;
+  passwordResult.copying=true;passwordResult.message='';passwordResult.error=false;renderPasswordResult(job());
+  try{
+    await navigator.clipboard.writeText(value);
+    if(request!==passwordRequest||state.selected!==id)return;
+    passwordResult.message='コピーしました。';
+  }catch{
+    if(request!==passwordRequest||state.selected!==id)return;
+    passwordResult.message='コピーできませんでした。';passwordResult.error=true;
+    if(!passwordResult.hidden){$('password-result').focus();$('password-result').select()}
+  }finally{if(request===passwordRequest&&state.selected===id){passwordResult.copying=false;renderPasswordResult(job())}}
 };
 const notes={pdf:'Officeの印刷レイアウト',image_pdf:'画像のみ・テキスト検索なし',word:'ページ画像・本文の文字編集なし',images:'PNG / 1ページ1枚',text:'OCRなし・元のテキスト層に依存（文字化けの可能性あり）'};
 function exportNote(){$('format-note').textContent=notes[$('export-kind').value];$('image-options').hidden=['text','pdf'].includes($('export-kind').value)}

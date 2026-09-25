@@ -143,6 +143,86 @@ async function designChecks(page, data) {
   await page.unroute('**/api/jobs');
 }
 
+async function passwordResultChecks(page, context, base, data) {
+  await page.waitForFunction(()=>document.getElementById('password-result').value==='Test42');
+  assert.equal(await page.locator('#password-result').getAttribute('type'),'text');
+  assert.ok(await page.locator('#password-result').evaluate(n=>n.readOnly));
+  await page.evaluate(()=>{
+    // Test clipboard only: never replace or read the user's actual clipboard.
+    window.copiedFixture='';window.denyFixtureCopy=false;
+    Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{
+      if(window.denyFixtureCopy)throw new DOMException('Test permission denial','NotAllowedError');
+      window.copiedFixture=value;
+    }}});
+  });
+  await page.locator('#copy-password').click();
+  await page.locator('#password-feedback').filter({hasText:'コピーしました'}).waitFor();
+  assert.equal(await page.evaluate(()=>window.copiedFixture),'Test42');
+  await page.locator('#reveal-password').click();
+  assert.equal(await page.locator('#password-result').getAttribute('type'),'password');
+  await page.evaluate(()=>refresh());
+  assert.equal(await page.locator('#password-result').getAttribute('type'),'password');
+  await page.locator('#copy-password').click();
+  assert.equal(await page.evaluate(()=>window.copiedFixture),'Test42');
+  await page.evaluate(()=>{window.denyFixtureCopy=true});
+  await page.locator('#copy-password').click();
+  await page.locator('#password-feedback').filter({hasText:'コピーできません'}).waitFor();
+  assert.equal(await page.locator('#password-result').getAttribute('type'),'password');
+  await page.locator('#reveal-password').click();
+  await page.locator('#copy-password').click();
+  await page.waitForFunction(()=>!document.getElementById('copy-password').disabled);
+  assert.equal(await page.locator('#password-result').evaluate(n=>n.selectionEnd-n.selectionStart),6);
+  await page.evaluate(()=>{window.denyFixtureCopy=false});
+  await page.locator('#copy-password').click();
+  for(const width of [320,390,768,1440]){
+    await page.setViewportSize({width,height:900});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'password result overflow '+width);
+    const field=await page.locator('#password-result').boundingBox(),button=await page.locator('#copy-password').boundingBox();
+    assert.ok(button.y>=field.y+field.height||button.x>=field.x+field.width,'copy overlaps password');
+    await page.screenshot({path:path.join(data,'password-result-'+width+'.png'),fullPage:true});
+  }
+  const current=(await (await context.request.get(base+'/api/jobs')).json()).jobs[0];
+  const other={...current,id:'password-other',name:'Other.docx',has_pdf:false,can_convert:false,contents:[],info:{extension:'.docx',format:'office'}};
+  const jobs=[current,other];let mode='error',pendingOther=null,requests=0;
+  const longPassword='  <tag>日本語'+ 'x'.repeat(90)+'  ';
+  await page.route('**/api/jobs',route=>route.fulfill({json:{jobs}}));
+  await page.route('**/api/jobs/*/password',async route=>{
+    requests++;
+    if(route.request().url().includes('/password-other/')){pendingOther=route;return}
+    if(mode==='error')return route.fulfill({status:503,json:{error:'Synthetic failure'}});
+    if(mode==='long')return route.fulfill({json:{password:longPassword}});
+    return route.continue();
+  });
+  await page.evaluate(()=>refresh());
+  await page.evaluate(()=>refresh());
+  assert.equal(requests,0,'polling must not fetch passwords repeatedly');
+  await page.locator('.file-item[data-id="password-other"]').click();
+  for(let i=0;i<100&&!pendingOther;i++)await delay(10);
+  assert.ok(pendingOther);
+  assert.equal(await page.locator('#password-result').inputValue(),'');
+  assert.equal(await page.locator('#copy-password').isEnabled(),false);
+  await page.locator('.file-item').first().click();
+  await page.locator('#retry-password').waitFor();
+  await pendingOther.fulfill({json:{password:'NeverShowOtherSecret'}});
+  await delay(50);
+  assert.equal(await page.locator('#password-result').inputValue(),'');
+  mode='long';await page.locator('#retry-password').click();
+  await page.waitForFunction(value=>document.getElementById('password-result').value===value,longPassword);
+  assert.equal(await page.locator('#password-result').getAttribute('type'),'text');
+  await page.locator('#copy-password').click();
+  assert.equal(await page.evaluate(()=>window.copiedFixture),longPassword);
+  await page.setViewportSize({width:320,height:900});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.screenshot({path:path.join(data,'password-long-320.png'),fullPage:true});
+  current.has_password=false;await page.evaluate(()=>refresh());
+  assert.equal(await page.locator('#password-result-panel').isVisible(),false);
+  assert.equal(await page.locator('#password-result').inputValue(),'');
+  mode='real';await page.unroute('**/api/jobs');await page.evaluate(()=>refresh());
+  await page.waitForFunction(()=>document.getElementById('password-result').value==='Test42');
+  await page.unroute('**/api/jobs/*/password');
+  await page.setViewportSize({width:1440,height:1000});
+}
+
 (async () => {
   let browser, context, base;
   try {
@@ -234,6 +314,7 @@ async function designChecks(page, data) {
     await page.locator('#password').fill('Test42');
     await page.locator('#known-form button[type=submit]').click();
     await page.locator('#ready-state').waitFor();
+    await passwordResultChecks(page,context,base,data);
     await page.waitForFunction(() => document.getElementById('page-image').naturalWidth > 0);
     await page.locator('#tab-export').click();
     await page.locator('#export-kind').selectOption('image_pdf');
@@ -256,7 +337,7 @@ async function designChecks(page, data) {
     if (!process.env.KAPERIO_EXECUTABLE) assert.match(second, /already running/);
     await designChecks(page, data);
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({passed: true, checks: ['empty-first-run', 'settings-availability', 'read-only-detect', 'field-validation', 'save-before-gpu-query', 'responsive-settings', 'fresh-no-engine', 'licenses', 'six-strategy-controls', 'guided-estimate', 'auto-workload-control', 'unlock', 'preview', 'export', 'mobile', 'delete', 'single-instance', 'six-responsive-widths', 'office-colours', 'neutral-states', 'pause-resume-motion', 'stale-offline-motion', 'reduced-motion', 'focus-stability', 'keyboard-tabs', 'recovery-first', 'unknown-answers', 'long-hint', 'bounded-empty-plan', 'long-fixed-part', 'responsive-interview'], screenshots: data}));
+    console.log(JSON.stringify({passed: true, checks: ['empty-first-run', 'settings-availability', 'read-only-detect', 'field-validation', 'save-before-gpu-query', 'responsive-settings', 'fresh-no-engine', 'licenses', 'six-strategy-controls', 'guided-estimate', 'auto-workload-control', 'unlock', 'preview', 'export', 'mobile', 'delete', 'single-instance', 'six-responsive-widths', 'office-colours', 'neutral-states', 'pause-resume-motion', 'stale-offline-motion', 'reduced-motion', 'focus-stability', 'keyboard-tabs', 'recovery-first', 'unknown-answers', 'long-hint', 'bounded-empty-plan', 'long-fixed-part', 'responsive-interview', 'password-visible-result', 'password-copy-feedback', 'password-copy-denied', 'password-stale-response', 'password-retry', 'password-long-text', 'password-no-secret'], screenshots: data}));
   } finally {
     if (context && base) await context.request.post(base + '/api/shutdown', {headers: {'X-Kaperio': '1'}, data: {}}).catch(() => {});
     if (browser) await browser.close();
