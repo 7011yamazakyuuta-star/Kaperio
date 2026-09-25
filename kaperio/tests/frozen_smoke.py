@@ -34,7 +34,7 @@ def main():
     args = parser.parse_args()
     executable = args.executable.resolve()
     with tempfile.TemporaryDirectory(prefix='kaperio-smoke-') as temporary:
-        root = Path(temporary)
+        root = Path(temporary).resolve()
         crypto_report = root / 'crypto.json'
         crypto_check = subprocess.run([str(executable), '--self-check', str(crypto_report)],
                                       cwd=root, timeout=60, capture_output=True)
