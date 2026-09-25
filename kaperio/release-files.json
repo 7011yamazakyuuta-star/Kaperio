@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0-alpha.4",
+  "version": "0.4.0-alpha.5",
   "files": [
     ".gitignore", "LICENSE", "README.md", "Setup.cmd", "Kaperio.cmd", "Loxmit.cmd",
     ".github/workflows/desktop.yml",
@@ -17,7 +17,7 @@
     "kaperio/docs/DISTRIBUTION.md", "kaperio/docs/research.md", "kaperio/docs/validation.md",
     "kaperio/docs/DESKTOP.md", "kaperio/tests/benchmark.py", "kaperio/tests/kernel_coverage.py",
     "kaperio/tests/dictionary_benchmark.py",
-    "kaperio/tests/strategy_integration.py",
+    "kaperio/tests/strategy_integration.py", "kaperio/tests/interview_integration.py",
     "kaperio/docs/PERFORMANCE.md", "kaperio/docs/mask-20260925.json", "kaperio/docs/dictionary-20260925.json",
     "kaperio/docs/planning-20260925.json", "kaperio/docs/split-threshold-20260925.json",
     "kaperio/tests/test_core.py", "kaperio/tests/test_converter.py", "kaperio/tests/test_http.py", "kaperio/tests/test_release.py",

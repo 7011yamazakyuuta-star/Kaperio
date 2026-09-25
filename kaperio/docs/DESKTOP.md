@@ -1,4 +1,4 @@
-# Loxmit Desktop 0.4.0-alpha.4
+# Loxmit Desktop 0.4.0-alpha.5
 
 Formerly Kaperio. The repository URL, internal source directory, legacy launchers,
 and Hashcat session identifiers are intentionally unchanged. This preserves links
@@ -96,13 +96,30 @@ benefits from application overhead; it does not prove superiority over tuned Has
 
 ## Recovery methods
 
+- Automatic interview (default): optional remembered words/numbers, unknown or bounded
+  length, unknown or selected character classes, and certain ASCII prefix/suffix.
+  Exact memories come first, followed by ASCII case/substitution variants, pairs of
+  words, numeric/symbol additions, and small bounded ASCII masks. Unknown character
+  classes try numeric, lowercase, alphanumeric, and printable ASCII subsets in order.
+  No external service or language model receives hints. Draft answers are separate
+  per file in browser memory; reloading clears unsent drafts.
+  Maximum 64 words (127 UTF-8 bytes each), 32 numeric tokens (16 bytes each),
+  100,000 generated words and 10,000,000 total planned attempts. Generated-word
+  truncation and length exclusions are explicitly reported. Overlapping mask
+  stages can repeat candidates; counts are attempts, not unique passwords.
+  Numeric additions cover supplied tokens, suffixes 0-99 (also 00-09), prefixes
+  0-9, and `!`, `_`, `-`. Word pairs also include a space separator.
+  The preview lists the actual subsets before starting. A known long length with
+  no useful clues can produce no feasible subset and asks for more clues instead
+  of pretending that a full long-password search is practical. Time limits still
+  apply across all stages; this is prioritized recovery, not complete coverage.
 - Exact dictionary: preserve each UTF-8 candidate, including literal `$HEX[...]` strings.
-- Mask: known prefix/suffix, ASCII character classes, total length 1-16.
+- Mask: known prefix/suffix, ASCII character classes, total length 1-127.
 - Dictionary rules: original/lower/upper/capitalized/toggled ASCII case, each with
   no suffix or a single trailing digit. 55 rule applications per base word;
   duplicates mean the displayed count is an upper bound, not unique passwords.
-- Suffix hybrid (`-a 6`): base dictionary plus a 1-16 character mask.
-- Prefix hybrid (`-a 7`): a 1-16 character mask plus the base dictionary.
+- Suffix hybrid (`-a 6`): base dictionary plus a 1-127 character mask.
+- Prefix hybrid (`-a 7`): a 1-127 character mask plus the base dictionary.
 - Guided: deterministic local hints, ordered exact / ASCII case and substitutions /
   supplied numeric tokens and symbols / optional word pairs and deletion/transposition.
   Maximum 64 hints (48 UTF-8 bytes each), 32 tokens (16 bytes), and 100,000 unique
@@ -115,6 +132,19 @@ Combined candidates must be at most 127 UTF-8 bytes; optimized PDF kernels are r
 only when the maximum after rules/masks is at most 16 bytes. ASCII case rules are not
 Unicode linguistic case folding. Recovery still depends on the actual password being
 inside the selected candidate set. No method decrypts a strong password instantly.
+Manual plans exceeding 2^63-1 attempts are rejected before launch. The 127-byte
+application ceiling is not a promise that every engine supports that length:
+Hashcat 7.1.2 PDF modes [10400](https://github.com/hashcat/hashcat/blob/v7.1.2/src/modules/module_10400.c)
+and [10500](https://github.com/hashcat/hashcat/blob/v7.1.2/src/modules/module_10500.c)
+declare a 32-byte maximum. Automatic plans exclude over-limit variants with a
+notice; manual plans reject them. Other runtime kernel length limits stop a stage
+with an explicit error instead of reporting silently rejected candidates as searched.
+Japanese words use UTF-8 and may occupy several bytes per character; generated ASCII
+masks do not enumerate Japanese characters. Long complete phrases remain eligible.
+
+`tests/interview_integration.py --hashcat /absolute/path/to/hashcat` performs opt-in
+GPU checks on generated PDFs, including long hints, a long prefix with one unknown
+character, and a 127-byte phrase. It never opens documents from the user's library.
 
 Completed stages are atomically checkpointed locally. The active stage uses its own
 Hashcat restore file. Resume verifies a digest of the source hash, plan, candidate

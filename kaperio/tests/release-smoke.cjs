@@ -171,13 +171,45 @@ async function designChecks(page, data) {
     await page.locator('#settings-dialog').waitFor({state:'hidden'});
     await page.locator('#files').setInputFiles(source);
     await page.locator('#document-name').filter({hasText: 'Sample.pdf'}).waitFor();
+    assert.equal(await page.locator('#recover-mode').getAttribute('aria-pressed'),'true');
+    assert.equal(await page.locator('#known-form').isVisible(),false);
+    assert.equal(await page.locator('#approach').inputValue(),'automatic');
+    assert.equal(await page.locator('#strategy').isVisible(),false);
+    await page.waitForFunction(()=>document.getElementById('candidate-count').textContent.includes('試行'));
+    assert.match(await page.locator('#plan-notes').textContent(),/網羅/);
+    await page.locator('#words').fill('RememberedLongPhrase');
+    await page.locator('#remember-length').selectOption('range');
+    await page.locator('#remember-min').fill('19');
+    await page.locator('#remember-max').fill('22');
+    await page.waitForFunction(()=>document.getElementById('candidate-count').textContent.includes('試行'));
+    assert.match(await page.locator('#hint-summary').textContent(),/語句/);
+    for(const width of [320,390,768,1440]){
+      await page.setViewportSize({width,height:1000});
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'interview overflow '+width);
+      await page.screenshot({path:path.join(data,'interview-'+width+'.png'),fullPage:true});
+    }
+    await page.locator('#words').fill('');
+    await page.waitForFunction(()=>document.getElementById('candidate-count').textContent.includes('条件を確認'));
+    assert.equal(await page.locator('#recovery-form button[type=submit]').isEnabled(),false);
+    await page.locator('#auto-questions details summary').click();
+    await page.locator('#remember-prefix').fill('RememberedLongPart');
+    await page.locator('#remember-min').fill('19');
+    await page.locator('#remember-max').fill('19');
+    await page.locator('#remember-characters').selectOption('digits');
+    await page.waitForFunction(()=>document.getElementById('candidate-count').textContent==='10 試行');
+    await page.locator('#remember-length').selectOption('unknown');
+    await page.locator('#remember-characters').selectOption('unknown');
+    await page.locator('#remember-prefix').fill('');
+    await page.setViewportSize({width:1440,height:1000});
     await page.locator('#recover-mode').click();
+    await page.locator('#approach').selectOption('manual');
     await page.locator('#strategy').selectOption('dictionary');
     await page.locator('#words').fill('test');
     for (const strategy of ['dictionary_rules', 'hybrid_suffix', 'hybrid_prefix', 'dictionary', 'mask']) {
       await page.locator('#strategy').selectOption(strategy);
       assert.equal(await page.locator('#dictionary-fields').isVisible(), strategy !== 'mask');
       assert.equal(await page.locator('#mask-fields').isVisible(), strategy === 'mask' || strategy.startsWith('hybrid_'));
+      await page.waitForFunction(()=>document.getElementById('candidate-count').textContent.includes('試行'));
       assert.doesNotMatch(await page.locator('#candidate-count').textContent(), /条件を確認/);
     }
     await page.locator('#strategy').selectOption('guided');
@@ -186,10 +218,10 @@ async function designChecks(page, data) {
     await page.locator('#hint-typos').check();
     await page.waitForFunction(() => document.getElementById('hint-summary').textContent.includes('数字'));
     assert.ok(await page.locator('#guided-fields').isVisible());
-    await page.locator('#recovery-form details summary').click();
+    await page.locator('#recovery-form > details > summary').click();
     await page.locator('#workload').selectOption('auto');
-    await page.locator('#recovery-form details summary').click();
-    await page.waitForFunction(() => document.getElementById('candidate-count').textContent.includes('通り'));
+    await page.locator('#recovery-form > details > summary').click();
+    await page.waitForFunction(() => document.getElementById('candidate-count').textContent.includes('試行'));
     await page.screenshot({path: path.join(data, 'recovery-desktop.png'), fullPage: true});
     await page.setViewportSize({width: 390, height: 844});
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -224,7 +256,7 @@ async function designChecks(page, data) {
     if (!process.env.KAPERIO_EXECUTABLE) assert.match(second, /already running/);
     await designChecks(page, data);
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({passed: true, checks: ['empty-first-run', 'settings-availability', 'read-only-detect', 'field-validation', 'save-before-gpu-query', 'responsive-settings', 'fresh-no-engine', 'licenses', 'six-strategy-controls', 'guided-estimate', 'auto-workload-control', 'unlock', 'preview', 'export', 'mobile', 'delete', 'single-instance', 'six-responsive-widths', 'office-colours', 'neutral-states', 'pause-resume-motion', 'stale-offline-motion', 'reduced-motion', 'focus-stability', 'keyboard-tabs'], screenshots: data}));
+    console.log(JSON.stringify({passed: true, checks: ['empty-first-run', 'settings-availability', 'read-only-detect', 'field-validation', 'save-before-gpu-query', 'responsive-settings', 'fresh-no-engine', 'licenses', 'six-strategy-controls', 'guided-estimate', 'auto-workload-control', 'unlock', 'preview', 'export', 'mobile', 'delete', 'single-instance', 'six-responsive-widths', 'office-colours', 'neutral-states', 'pause-resume-motion', 'stale-offline-motion', 'reduced-motion', 'focus-stability', 'keyboard-tabs', 'recovery-first', 'unknown-answers', 'long-hint', 'bounded-empty-plan', 'long-fixed-part', 'responsive-interview'], screenshots: data}));
   } finally {
     if (context && base) await context.request.post(base + '/api/shutdown', {headers: {'X-Kaperio': '1'}, data: {}}).catch(() => {});
     if (browser) await browser.close();

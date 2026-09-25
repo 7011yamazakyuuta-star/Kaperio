@@ -114,6 +114,27 @@ fieldset { border: 0; padding: 0; margin: 19px 0; }
 .label-row label { margin: 0; }
 .estimate { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); padding-top: 17px; margin: 24px 0; font-size: 12px; }
 .estimate strong { text-align: right; overflow-wrap: anywhere; font-weight: 500; font-variant-numeric: tabular-nums; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.recovery-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+.recovery-heading h3 { font-size: 16px; font-weight: 600; margin: 0; }
+.approach-label { margin: 0; }
+.approach-label select { width: auto; font-size: 12px; min-height: 36px; padding: 6px 10px; }
+#guided-fields { margin-top: 18px; }
+#guided-fields textarea { margin-top: 6px; }
+.interview-row label { min-width: 0; }
+.search-preview { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 18px; }
+.search-preview .estimate { border: 0; margin: 0 0 12px; padding: 0; align-items: baseline; }
+.search-preview h4 { margin: 0; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+.plan-stages { list-style: none; padding: 0; margin: 0; font-size: 12px; }
+.plan-stages li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; line-height: 1.6; }
+.plan-stages li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.plan-stages li > span:last-child { font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.plan-notes { color: var(--muted); font-size: 11px; line-height: 1.7; }
+.plan-notes p { margin: 9px 0 0; overflow-wrap: anywhere; }
+.search-start { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-end; margin-top: 24px; border-top: 1px solid var(--line); padding-top: 20px; }
+.search-start label { font-size: 12px; margin: 0; }
+.search-start input { display: block; width: 90px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.search-start .form-submit { margin-top: 0; }
 details { margin-top: 23px; }
 summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #414956; min-height: 36px; list-style: none; }
 summary::-webkit-details-marker { display: none; }

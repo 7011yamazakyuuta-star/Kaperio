@@ -38,7 +38,7 @@
             <button class="icon quiet" id="remove-file" title="ライブラリから削除" aria-label="ライブラリから削除"><i data-lucide="trash-2"></i></button>
           </header>
           <div class="tabs" role="tablist" aria-label="ファイル操作">
-            <button id="tab-unlock" role="tab" aria-controls="unlock-panel" aria-selected="true">開封・復元</button>
+            <button id="tab-unlock" role="tab" aria-controls="unlock-panel" aria-selected="true">ロックを解除</button>
             <button id="tab-export" role="tab" aria-controls="export-panel" aria-selected="false" tabindex="-1">書き出し</button>
           </div>
           <div id="unlock-panel" role="tabpanel" aria-labelledby="tab-unlock">
@@ -48,41 +48,48 @@
               <output id="password-result" hidden></output>
             </div>
             <div id="locked-state">
-              <div class="segmented" role="group" aria-label="開封方法"><button id="known-mode" class="selected" aria-pressed="true">既知のパスワード入力</button><button id="recover-mode" aria-pressed="false">パスワード復元</button></div>
-              <form id="known-form">
-                <label for="password">パスワード</label>
+              <div class="segmented" role="group" aria-label="パスワードの状況"><button id="recover-mode" class="selected" aria-pressed="true">パスワードを探す</button><button id="known-mode" aria-pressed="false">パスワードが分かる</button></div>
+              <form id="known-form" hidden>
+                <label for="password">分かっているパスワード</label>
                 <div class="password-field"><input id="password" type="password" autocomplete="off"><button type="button" class="icon quiet" id="toggle-password" title="表示を切り替え" aria-label="パスワード表示を切り替え"><i data-lucide="eye"></i></button></div>
-                <button class="primary form-submit" type="submit"><i data-lucide="lock-keyhole-open"></i>開封して保存</button>
+                <button class="primary form-submit" type="submit"><i data-lucide="lock-keyhole-open"></i>ロックを解除して保存</button>
               </form>
               <div id="run-summary" hidden>
-                <div class="section-heading"><h3>設定サマリー</h3><span class="muted" id="summary-caption">実行中の設定</span><button class="icon quiet" id="edit-plan" title="探索条件を変更" aria-label="探索条件を変更"><i data-lucide="pencil"></i></button></div>
+                <div class="section-heading"><h3>今回の探索内容</h3><span class="muted" id="summary-caption">実行中の設定</span><button class="icon quiet" id="edit-plan" title="探索条件を変更" aria-label="探索条件を変更"><i data-lucide="pencil"></i></button></div>
                 <dl id="plan-summary" class="definition-list"></dl>
+                <div id="summary-notes" class="plan-notes"></div>
                 <details id="run-options"><summary><i data-lucide="chevron-right"></i>GPU・実行設定</summary><dl id="run-options-list" class="definition-list"></dl></details>
               </div>
-              <form id="recovery-form" hidden>
-                <label for="strategy">復元方法</label>
+              <form id="recovery-form">
+                <div class="recovery-heading"><h3>覚えていること</h3><label class="approach-label"><span class="sr-only">探し方</span><select id="approach"><option value="automatic">おまかせ</option><option value="manual">手動で設定</option></select></label></div>
+                <div id="manual-strategy" hidden><label for="strategy">探し方</label>
                 <select id="strategy"><option value="guided">手掛かりから順に探索</option><option value="mask">文字数・文字種から探索</option><option value="dictionary">候補リストから探索</option><option value="dictionary_rules">候補＋英字大小・末尾数字</option><option value="hybrid_suffix">候補＋末尾の文字探索</option><option value="hybrid_prefix">先頭の文字探索＋候補</option></select>
+                </div>
                 <div id="mask-fields" hidden>
-                  <div class="field-row"><label><span id="min-label">最小文字数</span><input id="min-length" type="number" min="1" max="16" value="4"></label><label><span id="max-label">最大文字数</span><input id="max-length" type="number" min="1" max="16" value="6"></label></div>
+                  <div class="field-row"><label><span id="min-label">最小文字数</span><input id="min-length" type="number" min="1" max="127" value="4"></label><label><span id="max-label">最大文字数</span><input id="max-length" type="number" min="1" max="127" value="6"></label></div>
                   <fieldset class="charset"><legend>文字種</legend><label><input type="checkbox" name="charset" value="lower" checked>英小文字 a–z</label><label><input type="checkbox" name="charset" value="upper" checked>英大文字 A–Z</label><label><input type="checkbox" name="charset" value="digits" checked>数字 0–9</label><label><input type="checkbox" name="charset" value="symbols">記号</label></fieldset>
-                  <div class="field-row" id="fixed-fields"><label>先頭の固定文字<input id="prefix" maxlength="16" autocomplete="off"></label><label>末尾の固定文字<input id="suffix" maxlength="16" autocomplete="off"></label></div>
+                  <div class="field-row" id="fixed-fields"><label>先頭の固定文字<input id="prefix" maxlength="127" autocomplete="off"></label><label>末尾の固定文字<input id="suffix" maxlength="127" autocomplete="off"></label></div>
                 </div>
                 <div id="dictionary-fields">
-                  <div class="label-row"><label for="words">覚えている単語（1行1件）</label><button class="icon quiet" type="button" id="load-words" title="UTF-8テキストを読み込み" aria-label="候補リストを読み込み"><i data-lucide="upload"></i></button></div>
-                  <input id="word-file" type="file" accept=".txt,.dic" hidden><textarea id="words" rows="4" spellcheck="false"></textarea>
+                  <div class="label-row"><label for="words">心当たりのある語句は？ <span class="muted">任意・1行1件</span></label><button class="icon quiet" type="button" id="load-words" title="UTF-8テキストを読み込み" aria-label="候補リストを読み込み"><i data-lucide="upload"></i></button></div>
+                  <input id="word-file" type="file" accept=".txt,.dic" hidden><textarea id="words" rows="3" spellcheck="false" autocomplete="off" placeholder="名前、単語、よく使うフレーズなど"></textarea>
                 </div>
                 <div id="guided-fields">
-                  <div class="field-row"><label>覚えている数字・年（1行1件）<textarea id="hint-numbers" rows="2" spellcheck="false"></textarea></label><label>記号<input id="hint-symbols" value="!_" maxlength="8" autocomplete="off"></label></div>
-                  <fieldset class="charset"><legend>追加候補</legend><label><input id="hint-combine" type="checkbox">単語の結合</label><label><input id="hint-typos" type="checkbox">脱字・隣接文字の入れ替え</label></fieldset>
-                  <output id="hint-summary" class="muted"></output>
+                  <label>心当たりのある数字・年は？ <span class="muted">任意・1行1件</span><textarea id="hint-numbers" rows="2" spellcheck="false" autocomplete="off" placeholder="年、日付、よく使う数字など"></textarea></label>
+                  <div id="guided-options" hidden><label>追加する記号<input id="hint-symbols" value="!_" maxlength="8" autocomplete="off"></label><fieldset class="charset"><legend>追加候補</legend><label><input id="hint-combine" type="checkbox">単語の結合</label><label><input id="hint-typos" type="checkbox">脱字・隣接文字の入れ替え</label></fieldset></div>
                 </div>
-                <div class="estimate"><span>探索候補（上限）</span><strong id="candidate-count">—</strong></div>
+                <div id="auto-questions">
+                  <div class="field-row interview-row"><label>文字数を覚えていますか？<select id="remember-length"><option value="unknown">分からない</option><option value="range">長さを指定する</option></select></label><label>不明な部分の文字種は？<select id="remember-characters"><option value="unknown">分からない</option><option value="digits">数字だけ</option><option value="lower">英小文字だけ</option><option value="alnum">英字と数字</option><option value="all">英字・数字・記号</option></select></label></div>
+                  <div class="field-row" id="remember-range" hidden><label>最小文字数<input id="remember-min" type="number" value="8" min="1" max="127"></label><label>最大文字数<input id="remember-max" type="number" value="20" min="1" max="127"></label></div>
+                  <details><summary><i data-lucide="chevron-right"></i>確かに覚えている先頭・末尾</summary><div class="field-row"><label>先頭の文字<input id="remember-prefix" maxlength="127" autocomplete="off"></label><label>末尾の文字<input id="remember-suffix" maxlength="127" autocomplete="off"></label></div></details>
+                </div>
+                <section class="search-preview" aria-labelledby="search-preview-title"><div class="estimate"><h4 id="search-preview-title">今回試す範囲</h4><strong id="candidate-count" aria-live="polite">—</strong></div><ol id="hint-summary" class="plan-stages"></ol><div id="plan-notes" class="plan-notes" role="status"></div></section>
                 <details><summary><i data-lucide="chevron-right"></i>GPU・実行設定</summary>
-                  <div class="field-row"><label>時間上限（分）<input id="minutes" type="number" value="10" min="1" max="1440"></label><label>停止温度（°C）<input id="temperature" type="number" value="80" min="60" max="90"></label></div>
+                  <div class="field-row"><label>停止温度（°C）<input id="temperature" type="number" value="80" min="60" max="90"></label></div>
                   <div class="field-row"><label>GPU負荷<select id="workload"><option value="1">低負荷</option><option value="2">標準</option><option value="3">高負荷</option><option value="auto">自動測定（低〜高負荷）</option></select></label><label>カーネル<select id="kernel"><option value="auto">自動最適化</option><option value="pure">標準カーネル</option></select></label></div>
                   <label for="devices">デバイスID（空欄で自動）</label><input id="devices" placeholder="1" inputmode="numeric">
                 </details>
-                <button class="primary form-submit" type="submit"><i data-lucide="play"></i>探索を開始</button>
+                <div class="search-start"><label>探索時間の上限（分）<input id="minutes" type="number" value="10" min="1" max="1440"></label><button class="primary form-submit" type="submit"><i data-lucide="play"></i>パスワードを探す</button></div>
               </form>
             </div>
           </div>
@@ -116,7 +123,7 @@
             <p id="job-message" role="status"></p><div id="warnings"></div>
           </section>
           <section class="event-section"><h3>実行ログ</h3><ol id="event-log" aria-label="実行ログ"></ol></section>
-          <section class="quick-export"><h3>書き出し</h3><a id="quick-download" class="secondary" aria-disabled="true" tabindex="-1"><i data-lucide="download"></i>非暗号化ファイルを保存</a><button id="export-options" class="quiet" disabled><i data-lucide="sliders-horizontal"></i>書き出し形式を選択</button></section>
+          <section class="quick-export"><h3>書き出し</h3><a id="quick-download" class="secondary" aria-disabled="true" tabindex="-1"><i data-lucide="download"></i>パスワードなしで保存</a><button id="export-options" class="quiet" disabled><i data-lucide="sliders-horizontal"></i>書き出し形式を選択</button></section>
         </aside>
       </div>
     </div>
@@ -126,7 +133,7 @@
   <div class="dialog-heading"><h2 id="settings-title">設定</h2><button class="icon quiet" type="button" id="settings-close" aria-label="設定を閉じる" title="閉じる"><i data-lucide="x"></i></button></div>
   <section class="settings-section">
     <h3>利用状況</h3>
-    <dl class="capability-list"><dt>既知パスワードで開封</dt><dd><i data-lucide="check"></i>設定不要</dd><dt>パスワード探索</dt><dd id="recovery-availability">未設定</dd><dt>ZIPのパスワード探索</dt><dd id="zip-availability">未設定</dd></dl>
+    <dl class="capability-list"><dt>分かっているパスワードで解除</dt><dd><i data-lucide="check"></i>設定不要</dd><dt>忘れたパスワードを探す</dt><dd id="recovery-availability">未設定</dd><dt>ZIPのパスワードを探す</dt><dd id="zip-availability">未設定</dd></dl>
   </section>
   <section class="settings-section">
     <div class="settings-heading"><h3>探索エンジン</h3><button type="button" id="detect-tools"><i data-lucide="search"></i>自動検出</button></div>

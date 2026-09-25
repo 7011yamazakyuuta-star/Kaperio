@@ -156,6 +156,19 @@ class HTTPTests(unittest.TestCase):
         self.assertIsNone(self.library.zip2john)
         self.assertEqual(self.request('POST','/api/settings',json.dumps({'zip2john':'not-existing.exe'}),headers)[0],400)
 
+    def test_automatic_estimate_is_private_and_does_not_start_recovery(self):
+        headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1'}
+        data = json.dumps({'strategy': 'automatic', 'words': 'PrivateMemory', 'prefix': 'PrivateStart'})
+        status, body = self.request('POST', '/api/recovery/estimate', data, headers)
+        self.assertEqual(status, 200)
+        self.assertNotIn(b'PrivateMemory', body)
+        self.assertNotIn(b'PrivateStart', body)
+        result = json.loads(body)
+        self.assertLessEqual(int(result['candidates']), 10000000)
+        self.assertTrue(result['notes'])
+        self.assertFalse(list(Path(self.tmp.name).glob('**/candidates.hex')))
+        self.assertFalse(self.library.stops)
+
     def test_first_run_has_no_documents_and_settings_status_is_explicit(self):
         headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1'}
         self.library.hashcat = self.library.zip2john = None

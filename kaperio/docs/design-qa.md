@@ -86,3 +86,30 @@ acceptance groups, including zero-file startup and read-only detection.
 The previous dashboard commit `1f8f762` passed all four native hosted builds and
 frozen tests in [run 36107254054](https://github.com/7011yamazakyuuta-star/Kaperio/actions/runs/36107254054).
 This is evidence for that commit only; the settings revision requires its own run.
+
+## Recovery interview (0.4.0-alpha.5)
+
+The default view is now password recovery, with known-password opening as a
+separate choice. An optional-answers interview replaces the initial six-method
+menu; those methods remain available in manual mode. Unknown length/characters
+are explicit answers. A preview lists the actual bounded subsets, time budget,
+and coverage limitations. Masks accept up to 127 ASCII characters, subject to
+combined byte, engine and keyspace limits. Hints can be long UTF-8 phrases.
+
+Local verification on Windows 11, 2026-09-25:
+
+- 61 unit/HTTP tests passed, including empty-hint plans, UTF-8 boundaries, private
+  summaries, format-specific limits, mask-stage resume and bounded truncation.
+- The final alpha.5 Windows EXE passed 22 frozen integration checks and 31 browser
+  acceptance groups. Interview layouts were checked at 320, 390, 768 and 1440px;
+  existing dashboard regression checks still cover six widths. No JS errors.
+- Screenshots were visually inspected at desktop and 320px. No horizontal page
+  overflow occurred. Test documents and UI status fixtures are synthetic only.
+- Hashcat 7.1.2 on the local NVIDIA GPU recovered and verified generated PDFs:
+  RC4-40 with a 21-byte password from a word/year hint; AES-256 with a 19-byte
+  password from a prefix plus one unknown digit; AES-256 with a 127-byte exact
+  phrase. Candidate files were removed after successful decryption.
+
+These are bounded functional checks, not a speed benchmark or proof of recovery
+without clues. Native macOS/Linux validation belongs to the CI run for this
+revision; earlier green runs do not validate this change.

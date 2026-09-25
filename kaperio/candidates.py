@@ -83,3 +83,71 @@ def guided_candidates(data):
                     add(word[:i] + word[i + 1] + word[i] + word[i + 2:])
     group('単語結合・誤入力', start)
     return words, groups
+
+
+def interview_candidates(data, low, high, allowed, prefix, suffix, max_bytes=127):
+    """Prioritize literal memories before bounded local variations."""
+    bases = lines(data.get('words', ''), 64, 127)
+    tokens = lines(data.get('numbers', ''), 32, 16)
+    words, seen, groups = [], set(), []
+    omitted = {'bytes': False, 'capacity': False}
+
+    def add(value):
+        if not value:
+            return
+        if prefix and not value.startswith(prefix):
+            value = prefix + value
+        if suffix and not value.endswith(suffix):
+            value += suffix
+        if not low <= len(value) <= high:
+            return
+        middle = value[len(prefix):len(value) - len(suffix) if suffix else None]
+        if allowed is not None and any(c not in allowed for c in middle):
+            return
+        if len(value.encode('utf-8')) > max_bytes:
+            omitted['bytes'] = True
+            return
+        if value in seen:
+            return
+        if len(words) >= MAX_CANDIDATES:
+            omitted['capacity'] = True
+            return
+        seen.add(value)
+        words.append(value)
+
+    def group(name, start):
+        if len(words) > start:
+            groups.append({'name': name, 'count': len(words) - start})
+
+    for word in [*bases, *tokens]:
+        add(word)
+    group('覚えている語句・数字', 0)
+    start = len(words)
+    variants = list(bases)
+    for word in bases:
+        lower = word.translate(ASCII_LOWER)
+        variants.extend([lower, word.translate(ASCII_UPPER), lower[:1].translate(ASCII_UPPER) + lower[1:]])
+        variants.extend(lower.replace(old, new) for old, new in LEET if old in lower)
+    variants = list(dict.fromkeys(variants))
+    for word in variants:
+        add(word)
+    group('英字の大小・置き換え', start)
+    start = len(words)
+    for left in bases:
+        for right in bases:
+            for separator in ('', ' ', '_', '-'):
+                add(left + separator + right)
+    group('2つの単語の組み合わせ', start)
+    start = len(words)
+    for word in variants:
+        for token in dict.fromkeys([*tokens, *(str(n) for n in range(100)), *(f'{n:02d}' for n in range(10))]):
+            add(word + token)
+            for symbol in ('!', '_', '-'):
+                add(word + symbol + token)
+                add(word + token + symbol)
+        for token in dict.fromkeys([*tokens, *(str(n) for n in range(10))]):
+            add(token + word)
+        for symbol in ('!', '_', '-'):
+            add(word + symbol)
+    group('数字・記号の付け足し', start)
+    return words, groups, omitted

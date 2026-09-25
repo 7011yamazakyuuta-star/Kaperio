@@ -51,8 +51,11 @@ EVENT_LABELS = {
 def public_plan(plan):
     # Never expose remembered words, fixed password fragments, or candidate files.
     keys = ('strategy', 'min', 'max', 'charsets', 'minutes', 'temperature',
-            'workload', 'kernel', 'devices', 'tune', 'candidates', 'groups')
-    return {key: plan[key] for key in keys if key in plan}
+            'workload', 'kernel', 'devices', 'tune', 'candidates', 'groups', 'length', 'characters', 'notes')
+    result = {key: plan[key] for key in keys if key in plan}
+    if plan.get('strategy') == 'automatic':
+        result['groups'] = [*plan['groups'], *({'name': s['stage_name'], 'count': s['candidates']} for s in plan['stages'])]
+    return result
 
 
 class SettingsError(ValueError):
@@ -358,10 +361,10 @@ class Library:
                 if not job.get('plan'):
                     raise ValueError('再開できる探索がありません。')
                 plan = dict(job['plan'])
-                if plan['strategy'] in WORD_STRATEGIES:
+                if plan['strategy'] in WORD_STRATEGIES | {'automatic'}:
                     plan['words'] = [bytes.fromhex(s).decode('utf-8') for s in (folder / 'candidates.hex').read_text().splitlines()]
             else:
-                plan = validate_plan(data)
+                plan = validate_plan(data, job['info'].get('mode'))
                 clear_execution(folder)
             hash_value, mode = get_hash(folder / job['source'], job['info'], self.hashcat, self.zip2john)
             (folder / 'source.hash').write_text(hash_value + '\n', encoding='ascii')
@@ -644,8 +647,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_route(self, data):
         if self.path == '/api/recovery/estimate':
-            plan = validate_plan(data)
-            self.send_data(200, {'candidates': plan['candidates'], 'groups': plan.get('groups', [])})
+            with self.library.lock:
+                mode = self.library.jobs[data['job_id']]['info'].get('mode') if data.get('job_id') else None
+            plan = validate_plan(data, mode)
+            summary = public_plan(plan)
+            self.send_data(200, {key: summary.get(key, [] if key != 'candidates' else '0') for key in ('candidates', 'groups', 'notes')})
             return
         elif self.path == '/api/settings/detect':
             self.send_data(200, {'hashcat': str(self.library.discover_hashcat(configured=False) or ''),

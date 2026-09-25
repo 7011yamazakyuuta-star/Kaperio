@@ -1,14 +1,15 @@
 /* Local-only UI. User filenames, hints, and server messages stay text nodes. */
 const $ = id => document.getElementById(id);
 const MAX_UPLOAD_MB = 200;
-const state = {jobs: [], selected: null, page: 0, tab: 'unlock', mode: 'known', preview: '', polling: false, connected: true, editing: false};
+const state = {jobs: [], selected: null, page: 0, tab: 'unlock', mode: 'recover', preview: '', polling: false, connected: true, editing: false, planValid: false};
 const busy = new Set(['queued', 'recovering', 'pausing', 'converting', 'unlocking']);
 const labels = {locked:'未解除',ready:'完了',queued:'待機',recovering:'探索中',pausing:'停止中',paused:'一時停止',converting:'書き出し中',exhausted:'探索完了',error:'要確認',cancelled:'中止',unlocking:'照合中'};
 const statusIcons = {locked:'lock-keyhole',ready:'check',queued:'clock-3',recovering:'loader-circle',pausing:'pause',paused:'pause',converting:'loader-circle',exhausted:'check',error:'triangle-alert',cancelled:'square',unlocking:'loader-circle'};
 const kinds = {pdf:'PDF',unlocked:'解除済みファイル',image_pdf:'画像PDF',images:'ページ画像 ZIP',word:'Word・ページ画像',text:'抽出テキスト'};
-const strategies = {guided:'手掛かり',mask:'文字数・文字種',dictionary:'候補リスト',dictionary_rules:'候補＋変形ルール',hybrid_suffix:'候補＋末尾探索',hybrid_prefix:'先頭探索＋候補'};
+const strategies = {automatic:'おまかせ（手掛かりを優先）',guided:'手掛かり',mask:'文字数・文字種',dictionary:'候補リスト',dictionary_rules:'候補＋変形ルール',hybrid_suffix:'候補＋末尾探索',hybrid_prefix:'先頭探索＋候補'};
 const charsetNames = {lower:'英小文字',upper:'英大文字',digits:'数字',symbols:'記号'};
 const renderKeys = new Map();
+const drafts = new Map();
 function icons(){lucide.createIcons({attrs:{'stroke-width':1.7}})}
 function el(tag, cls, text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n}
 function icon(name){const n=el('i');n.dataset.lucide=name;return n}
@@ -38,8 +39,13 @@ function statusNode(j){const n=el('span','status'+statusClass(j));n.append(icon(
 function setTab(tab){if(tab==='export'&&!job()?.available)return;state.tab=tab;renderDetail()}
 function selectJob(id){
   if(state.selected!==id){
+    const fields=[...$('recovery-form').querySelectorAll('input:not([type=file]),select,textarea')];
+    if(state.selected)drafts.set(state.selected,fields.map(n=>({value:n.value,checked:n.checked})));
     state.selected=id;state.page=0;state.preview='';state.tab='unlock';state.editing=false;
-    state.mode=job()?.plan_summary?'recover':'known';
+    state.mode='recover';$('recovery-form').reset();state.hybrid=false;
+    for(const [index,saved] of (drafts.get(id)||[]).entries()){const n=fields[index];n.value=saved.value;if(n.type==='checkbox')n.checked=saved.checked}
+    state.hybrid=selectedStrategy().startsWith('hybrid_');
+    strategyChanged();
     $('password').value='';$('password').type='password';$('password-result').textContent='';$('password-result').hidden=true;
     $('job-progress').classList.add('changed');
     requestAnimationFrame(()=>requestAnimationFrame(()=>$('job-progress').classList.remove('changed')));
@@ -83,8 +89,10 @@ function renderSummary(j){
     rows.push([p.strategy==='mask'?'長さ範囲':'追加文字数',`${p.min} ～ ${p.max} 文字`]);
   }
   if(p.candidates!==undefined)rows.push(['候補数',number(p.candidates)+' 通り']);
+  if(p.strategy==='automatic')rows.push(['語句の長さ',p.length==='unknown'?'分からない':`${p.min} ～ ${p.max} 文字`]);
   if(p.groups?.length)rows.push(['候補グループ',p.groups.map(g=>g.name).join(' / ')]);
   definition('plan-summary',rows);
+  if(changed('summary-notes',p.notes))$('summary-notes').replaceChildren(...(p.notes||[]).map(note=>el('p','',note)));
   definition('run-options-list',[
     ['時間上限',p.minutes+' 分'],['停止温度',p.temperature+' °C'],
     ['GPU負荷',p.tune?'自動測定':({'1':'低負荷','2':'標準','3':'高負荷',auto:'自動測定'}[p.workload]||p.workload)],
@@ -149,7 +157,7 @@ function renderDetail(){
   const download=`/api/jobs/${j.id}/download/unlocked${j.info.extension}`;
   $('unlocked-download').href=download;$('download-label').textContent='解除済み '+extension;$('reveal-password').hidden=!j.has_password;
   for(const form of ['known-form','recovery-form','export-form'])for(const n of $(form).querySelectorAll('input,select,textarea,button'))n.disabled=busy.has(j.state)||form==='export-form'&&!j.available;
-  $('recovery-form').querySelector('button[type=submit]').disabled=busy.has(j.state)||!j.info.recoverable;
+  recoveryControls();
   $('export-form').hidden=!j.can_convert;
   if(changed('outputs',[j.id,j.outputs])){
     const rows=(j.outputs||[]).map(out=>{
@@ -194,37 +202,46 @@ async function refresh(){
   finally{state.polling=false}
 }
 async function action(name,data={},id=state.selected){
-  if(name==='recover')Object.assign(data,hintFields(),{workload:$('workload').value});
-  try{await api(`/api/jobs/${id}/${name}`,data);if(name==='recover'){state.editing=false;state.mode='recover'}$('toast').hidden=true;await refresh();return true}catch(e){toast(e.message);return false}
+  try{await api(`/api/jobs/${id}/${name}`,data);if(name==='recover'){state.editing=false;state.mode='recover'}if(name==='remove')drafts.delete(id);$('toast').hidden=true;await refresh();return true}catch(e){toast(e.message);return false}
 }
 function hintFields(){return {numbers:$('hint-numbers').value,separators:$('hint-symbols').value,combine:$('hint-combine').checked,typos:$('hint-typos').checked}}
 let estimateVersion=0,estimateTimer;
-function estimateGuided(){
-  const version=++estimateVersion;clearTimeout(estimateTimer);$('candidate-count').textContent='計算中';$('hint-summary').textContent='';
-  estimateTimer=setTimeout(async()=>{
-    try{const result=await api('/api/recovery/estimate',{strategy:'guided',words:$('words').value,...hintFields()});if(version!==estimateVersion||$('strategy').value!=='guided')return;
-      $('candidate-count').textContent=number(result.candidates)+' 通り';$('hint-summary').textContent=result.groups.map(g=>g.name+' '+number(g.count)).join(' / ');
-    }catch(e){if(version===estimateVersion&&$('strategy').value==='guided'){$('candidate-count').textContent='条件を確認してください';$('hint-summary').textContent=e.message}}
-  },350);
+function selectedStrategy(){return $('approach').value==='automatic'?'automatic':$('strategy').value}
+function planFields(){
+  const automatic=selectedStrategy()==='automatic';
+  return {job_id:state.selected,strategy:selectedStrategy(),words:$('words').value,...hintFields(),
+    min:Number($(automatic?'remember-min':'min-length').value),max:Number($(automatic?'remember-max':'max-length').value),
+    prefix:$(automatic?'remember-prefix':'prefix').value,suffix:$(automatic?'remember-suffix':'suffix').value,
+    length:$('remember-length').value,characters:$('remember-characters').value,
+    charsets:[...document.querySelectorAll('[name=charset]:checked')].map(n=>n.value),
+    minutes:Number($('minutes').value),temperature:Number($('temperature').value),
+    workload:$('workload').value,kernel:$('kernel').value,devices:$('devices').value};
+}
+function recoveryControls(){
+  for(const n of $('recovery-form').querySelectorAll('input,select,textarea,button'))n.disabled=busy.has(job()?.state)||!!n.closest('[hidden]');
+  $('recovery-form').querySelector('button[type=submit]').disabled=busy.has(job()?.state)||!job()?.info.recoverable||!state.planValid;
 }
 function estimate(){
-  try{
-    const strategy=$('strategy').value,hybrid=strategy.startsWith('hybrid_');
-    if(strategy==='guided'){estimateGuided();return}++estimateVersion;clearTimeout(estimateTimer);
-    const words=BigInt(new Set($('words').value.split(/\r?\n/).filter(Boolean)).size);let count;
-    if(strategy==='dictionary'||strategy==='dictionary_rules')count=words*(strategy==='dictionary_rules'?55n:1n);
-    else{
-      const sizes={lower:26,upper:26,digits:10,symbols:33};const size=[...document.querySelectorAll('[name=charset]:checked')].reduce((s,n)=>s+sizes[n.value],0);
-      const fixed=hybrid?0:[...$('prefix').value,...$('suffix').value].length;
-      const low=Number($('min-length').value),high=Number($('max-length').value);
-      if(!Number.isInteger(low)||!Number.isInteger(high)||low<1||low<fixed||high<low||high>16||!size)throw Error();
-      count=0n;for(let n=low;n<=high;n++)count+=BigInt(size)**BigInt(n-fixed);if(hybrid)count*=words;
-    }$('candidate-count').textContent=count.toLocaleString()+' 通り';
-  }catch{$('candidate-count').textContent='条件を確認してください'}
+  const version=++estimateVersion;clearTimeout(estimateTimer);state.planValid=false;recoveryControls();
+  $('remember-range').hidden=$('remember-length').value!=='range';recoveryControls();
+  $('candidate-count').textContent='計算中';$('hint-summary').replaceChildren();$('plan-notes').replaceChildren();
+  const data=planFields();
+  estimateTimer=setTimeout(async()=>{
+    try{const result=await api('/api/recovery/estimate',data);if(version!==estimateVersion)return;
+      state.planValid=true;$('candidate-count').textContent=number(result.candidates)+' 試行';
+      $('hint-summary').replaceChildren(...result.groups.map(g=>{const row=el('li');row.append(el('span','',g.name),el('span','muted',number(g.count)));return row}));
+      const notes=[...(result.notes||[])];
+      if(data.strategy!=='automatic')notes.push('最大127 UTF-8バイト。暗号方式によって探索できる長さは異なります。');
+      $('plan-notes').replaceChildren(...notes.map(note=>el('p','',note)));
+    }catch(e){if(version===estimateVersion){$('candidate-count').textContent='条件を確認';$('plan-notes').replaceChildren(el('p','field-error',e.message))}}
+    finally{if(version===estimateVersion)recoveryControls()}
+  },350);
 }
 function strategyChanged(){
-  const strategy=$('strategy').value,hybrid=strategy.startsWith('hybrid_');
-  $('guided-fields').hidden=strategy!=='guided';document.querySelector('label[for=words]').textContent=strategy==='guided'?'覚えている単語（1行1件）':'候補リスト（1行1件）';
+  const strategy=selectedStrategy(),automatic=strategy==='automatic',hybrid=strategy.startsWith('hybrid_');
+  $('manual-strategy').hidden=automatic;$('auto-questions').hidden=!automatic;$('guided-options').hidden=automatic;
+  $('recovery-form').querySelector('h3').textContent=automatic?'覚えていること':'探索条件';
+  $('guided-fields').hidden=!automatic&&strategy!=='guided';document.querySelector('label[for=words]').textContent=automatic?'心当たりのある語句は？（任意・1行1件）':strategy==='guided'?'覚えている単語（1行1件）':'候補リスト（1行1件）';
   $('mask-fields').hidden=strategy!=='mask'&&!hybrid;$('dictionary-fields').hidden=strategy==='mask';$('fixed-fields').hidden=hybrid;
   $('min-label').textContent=hybrid?'追加の最小文字数':'最小文字数';$('max-label').textContent=hybrid?'追加の最大文字数':'最大文字数';
   if(hybrid!==Boolean(state.hybrid)){$('min-length').value=hybrid?1:4;$('max-length').value=hybrid?2:6}state.hybrid=hybrid;estimate();
@@ -246,14 +263,11 @@ document.querySelector('[role=tablist]').onkeydown=e=>{
   tabs[index].click();tabs[index].focus();
 };
 for(const mode of ['known','recover'])$(mode+'-mode').onclick=()=>{state.mode=mode;renderDetail()};
-$('edit-plan').onclick=()=>{state.editing=true;renderDetail();$('strategy').focus()};
+$('edit-plan').onclick=()=>{state.editing=true;renderDetail();$('approach').focus()};
 $('toggle-password').onclick=()=>{$('password').type=$('password').type==='password'?'text':'password'};
 $('known-form').onsubmit=async e=>{e.preventDefault();const id=state.selected;const ok=await action('unlock',{password:$('password').value},id);if(ok&&id===state.selected)$('password').value=''};
-$('recovery-form').onsubmit=e=>{e.preventDefault();action('recover',{
-  strategy:$('strategy').value,min:Number($('min-length').value),max:Number($('max-length').value),prefix:$('prefix').value,suffix:$('suffix').value,
-  charsets:[...document.querySelectorAll('[name=charset]:checked')].map(n=>n.value),words:$('words').value,minutes:Number($('minutes').value),
-  temperature:Number($('temperature').value),kernel:$('kernel').value,devices:$('devices').value
-})};
+$('recovery-form').onsubmit=e=>{e.preventDefault();if(state.planValid)action('recover',planFields())};
+$('approach').onchange=strategyChanged;
 $('strategy').onchange=strategyChanged;$('recovery-form').oninput=estimate;$('load-words').onclick=()=>$('word-file').click();
 $('word-file').onchange=async()=>{const f=$('word-file').files[0];if(f){if(f.size>12*1024*1024)return toast('候補ファイルが大きすぎます。');$('words').value=await f.text();estimate()}};
 for(const [id,name] of [['pause-job','pause'],['resume-job','resume'],['cancel-job','cancel']])$(id).onclick=()=>action(name);

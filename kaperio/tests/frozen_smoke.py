@@ -112,6 +112,15 @@ def main():
             estimate = api('/api/recovery/estimate', {'strategy': 'guided', 'words': 'test', 'numbers': '2024'})
             assert int(estimate['candidates']) > 1 and len(estimate['groups']) == 3
             checks.append('guided-estimate')
+            automatic = api('/api/recovery/estimate', {'strategy': 'automatic'})
+            assert 0 < int(automatic['candidates']) <= 10000000
+            assert automatic['notes'] and len(automatic['groups']) == 4
+            long_hint = 'PrivateLongPhrase' + 'x' * 80
+            automatic = api('/api/recovery/estimate', {'strategy': 'automatic', 'words': long_hint,
+                                                      'length': 'range', 'min': len(long_hint), 'max': len(long_hint)})
+            assert int(automatic['candidates']) > 0
+            assert long_hint not in json.dumps(automatic)
+            checks += ['automatic-unknown-answers', 'automatic-long-private-hint']
             if args.hashcat:
                 api('/api/settings', {'hashcat': str(args.hashcat.resolve()),
                                      'zip2john': str(args.zip2john.resolve()) if args.zip2john else ''})

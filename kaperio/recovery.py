@@ -10,18 +10,21 @@ import threading
 import time
 from pathlib import Path
 
-from candidates import guided_candidates
+from candidates import guided_candidates, interview_candidates
 
 CHARSETS = {'lower': ('?l', 26), 'upper': ('?u', 26), 'digits': ('?d', 10), 'symbols': ('?s', 33)}
 CREATE_FLAGS = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
 HYBRIDS = {'hybrid_suffix', 'hybrid_prefix'}
 WORD_STRATEGIES = {'dictionary', 'dictionary_rules', 'guided'} | HYBRIDS
+MAX_LENGTH = 127
+AUTO_ATTEMPTS = 10000000
+MAX_KEYSPACE = 2**63 - 1
 SPLIT_MIN_WORDS = 65536
 RULES = [case + ending for case in (':', 'l', 'u', 'c', 't')
          for ending in ('', *(f'${n}' for n in range(10)))]
 
 
-def validate_plan(data):
+def validate_plan(data, mode=None):
     strategy = data.get('strategy', 'mask')
     minutes = int(data.get('minutes', 10))
     tune = data.get('workload') == 'auto'
@@ -37,8 +40,10 @@ def validate_plan(data):
         raise ValueError('デバイスIDは 1 または 1,2 の形式です。')
     plan = {'strategy': strategy, 'minutes': minutes, 'workload': workload,
             'temperature': temperature, 'devices': devices, 'kernel': kernel, 'tune': tune}
-    if strategy not in WORD_STRATEGIES | {'mask'}:
+    if strategy not in WORD_STRATEGIES | {'mask', 'automatic'}:
         raise ValueError('探索方法が不正です。')
+    if strategy == 'automatic':
+        return automatic_plan(data, plan, mode)
     if strategy == 'guided':
         words, groups = guided_candidates(data)
         plan.update(words=words, groups=groups, candidates=str(len(words)))
@@ -60,18 +65,82 @@ def validate_plan(data):
         if any(ord(x) < 32 or ord(x) > 126 or x == ',' for x in prefix + suffix):
             raise ValueError('前後の固定文字はカンマを除く半角英数字・記号にしてください。')
         fixed = len(prefix) + len(suffix)
-        if not 1 <= low <= high <= 16 or low < fixed or len(prefix + suffix) > 16:
-            raise ValueError('全体の文字数は1〜16、固定部分の長さ以上にしてください。')
+        if not 1 <= low <= high <= MAX_LENGTH or low < fixed or fixed > MAX_LENGTH:
+            raise ValueError('全体の文字数は1〜127、固定部分の長さ以上にしてください。')
         size = sum(CHARSETS[x][1] for x in chosen)
         multiplier = len(plan['words']) if strategy in HYBRIDS else 1
         plan.update(min=low, max=high, prefix=prefix, suffix=suffix, charsets=chosen,
                     candidates=str(multiplier * sum(size**(n - fixed) for n in range(low, high + 1))))
     if strategy in WORD_STRATEGIES and candidate_max_bytes(plan) > 127:
         raise ValueError('変形・追加後の候補はUTF-8で127バイト以内にしてください。')
+    if int(plan['candidates']) > MAX_KEYSPACE:
+        raise ValueError('候補範囲が大きすぎます。先頭・末尾の手掛かりや文字数で絞ってください。')
+    if mode in (10400, 10500) and candidate_max_bytes(plan) > 32:
+        raise ValueError('このPDFの探索上限は32バイトです。候補の長さを絞ってください。')
+    return plan
+
+
+def automatic_plan(data, plan, mode=None):
+    length = data.get('length', 'unknown')
+    charset = data.get('characters', 'unknown')
+    choices = {'digits': ['digits'], 'lower': ['lower'],
+               'alnum': ['lower', 'upper', 'digits'], 'all': list(CHARSETS)}
+    if length not in ('unknown', 'range') or charset not in ('unknown', *choices):
+        raise ValueError('長さ・文字種の回答が不正です。')
+    low, high = (1, MAX_LENGTH) if length == 'unknown' else (int(data.get('min', 1)), int(data.get('max', MAX_LENGTH)))
+    if not 1 <= low <= high <= MAX_LENGTH:
+        raise ValueError('文字数は1〜127の範囲で指定してください。')
+    max_bytes = 32 if mode in (10400, 10500) else MAX_LENGTH
+    if low > max_bytes:
+        raise ValueError(f'この形式の探索上限は{max_bytes}バイトです。文字数を見直してください。')
+    prefix, suffix = data.get('prefix', ''), data.get('suffix', '')
+    if not isinstance(prefix, str) or not isinstance(suffix, str) or any(ord(c) < 32 or ord(c) > 126 or c == ',' for c in prefix + suffix):
+        raise ValueError('先頭・末尾はカンマを除く半角文字で指定してください。日本語の手掛かりは語句の欄へ入力してください。')
+    fixed = len(prefix) + len(suffix)
+    if fixed > min(high, max_bytes):
+        raise ValueError('先頭・末尾の文字数が、全体の文字数を超えています。')
+    alphabets = {'lower': 'abcdefghijklmnopqrstuvwxyz', 'upper': 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+                 'digits': '0123456789', 'symbols': ''.join(chr(n) for n in range(32, 127) if not chr(n).isalnum())}
+    selected = choices.get(charset)
+    allowed = None if selected is None else set(''.join(alphabets[key] for key in selected))
+    words, groups, omitted = interview_candidates(data, low, high, allowed, prefix, suffix, max_bytes)
+    stages, total = [], len(words)
+    # Unknown means prioritized subsets, never a claim to cover all passwords.
+    sets = [selected] if selected else [choices['digits'], choices['lower'], choices['alnum'], choices['all']]
+    notes = ['おまかせは1回1,000万試行以内の優先探索です。すべてのパスワードを網羅するものではありません。']
+    for chosen in sets:
+        size = sum(CHARSETS[key][1] for key in chosen)
+        start, end, count = max(low, fixed, 1), None, 0
+        for n in range(start, min(high, max_bytes) + 1):
+            attempts = size ** (n - fixed)
+            if total + count + attempts > AUTO_ATTEMPTS:
+                break
+            count += attempts
+            end = n
+        if end is not None:
+            names = {'digits': '数字', 'lower': '英小文字', 'alnum': '英字・数字', 'all': '英字・数字・記号'}
+            name = next(names[key] for key, value in choices.items() if value == chosen)
+            span = str(start) if start == end else f'{start}〜{end}'
+            stages.append({'strategy': 'mask', 'min': start, 'max': end, 'prefix': prefix, 'suffix': suffix,
+                           'charsets': chosen, 'candidates': str(count), 'stage_name': f'{name} / 全体{span}文字'})
+            total += count
+    if omitted['bytes']:
+        notes.append(f'この形式ではUTF-8で{max_bytes}バイトを超える候補は対象外です。')
+    if omitted['capacity']:
+        notes.append('語句から作る候補は先頭10万件までです。語句を絞ると後の組み合わせも対象になります。')
+    if not total:
+        raise ValueError('この条件では1,000万試行以内に絞れません。覚えている語句、または確かな先頭・末尾を追加してください。')
+    notes.append('語句は指定した長さで絞り込みます。半角の組み合わせ探索は表示範囲のみ。暗号方式により長さの上限は異なります。')
+    if length == 'unknown':
+        notes.append(f'長さ不明でも、入力した長い語句は候補に含まれます（この形式は最大{max_bytes} UTF-8バイト）。')
+    plan.update(words=words, groups=groups, stages=stages, candidates=str(total), notes=notes,
+                length=length, characters=charset, min=low, max=high)
     return plan
 
 
 def candidate_max_bytes(plan):
+    if plan['strategy'] == 'automatic':
+        return max([len(word.encode('utf-8')) for word in plan['words']] + [s['max'] for s in plan['stages']])
     if plan['strategy'] == 'mask':
         return plan['max']
     maximum = max(len(word.encode('utf-8')) for word in plan['words'])
@@ -84,10 +153,12 @@ def candidate_max_bytes(plan):
 
 def write_inputs(folder, plan):
     strategy = plan['strategy']
-    if strategy in WORD_STRATEGIES:
+    if strategy in WORD_STRATEGIES | {'automatic'}:
         # Hex wordlists preserve literal $HEX[...] and exact UTF-8 bytes.
         path = folder / 'candidates.hex'
-        path.write_text('\n'.join(w.encode('utf-8').hex() for w in plan['words']) + '\n', encoding='ascii')
+        path.write_text(''.join(w.encode('utf-8').hex() + '\n' for w in plan['words']), encoding='ascii')
+        if strategy == 'automatic':
+            return []
         if strategy in ('dictionary', 'guided'):
             return ['-a', '0', '--hex-wordlist', str(path)]
         if strategy == 'dictionary_rules':
@@ -178,10 +249,14 @@ def run_stage(executable, folder, mode, plan, stop, update, resume=False, second
     process = subprocess.Popen(args, cwd=executable.parent, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                                creationflags=CREATE_FLAGS)
-    errors = []
+    errors, length_limits = [], []
+    maximum = candidate_max_bytes(plan)
     def consume():
         for raw in iter(process.stdout.readline, b''):
             line = raw.decode('utf-8', errors='replace').strip()
+            limit = re.fullmatch(r'Maximum password length supported by kernel: (\d+)', line)
+            if limit and maximum > int(limit[1]):
+                length_limits.append(int(limit[1]))
             status = parse_status(line)
             if status:
                 update(metrics=status)
@@ -197,6 +272,9 @@ def run_stage(executable, folder, mode, plan, stop, update, resume=False, second
     reason = None
     try:
         while process.poll() is None:
+            if length_limits:
+                process.terminate()
+                break
             if stop.is_set() or time.monotonic() - started >= (plan['minutes'] * 60 if seconds is None else seconds):
                 reason = 'pause' if stop.is_set() else 'time_limit'
                 process.terminate()
@@ -217,6 +295,8 @@ def run_stage(executable, folder, mode, plan, stop, update, resume=False, second
         found.unlink(missing_ok=True)
     if password is not None:
         return {'state': 'found', 'password': password}
+    if length_limits:
+        raise ValueError(f'この暗号方式の探索上限は{min(length_limits)}バイトです。候補に上限を超える長さがあるため停止しました。長さ・語句を絞ってください。')
     if reason:
         return {'state': 'paused', 'checkpoint': restore.exists(), 'reason': reason}
     if code == 1:
@@ -227,7 +307,7 @@ def run_stage(executable, folder, mode, plan, stop, update, resume=False, second
 
 
 def execution_stages(mode, plan):
-    groups = plan.get('groups', []) if plan['strategy'] == 'guided' else []
+    groups = plan.get('groups', []) if plan['strategy'] in ('guided', 'automatic') else []
     if groups and sum(g['count'] for g in groups) != len(plan['words']):
         raise ValueError('保存された候補数が一致しません。新しく探索を開始してください。')
     chunks, offset = [], 0
@@ -236,6 +316,8 @@ def execution_stages(mode, plan):
                      candidates=str(group['count']), stage_name=group['name'])
         chunks.append(chunk)
         offset += group['count']
+    if plan['strategy'] == 'automatic':
+        chunks.extend(dict(plan, **stage) for stage in plan['stages'])
     if not chunks:
         chunks = [dict(plan, stage_name='候補探索')]
     stages = []
