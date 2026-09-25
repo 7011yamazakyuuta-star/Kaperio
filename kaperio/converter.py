@@ -49,7 +49,16 @@ def run_converter(args, folder, cancelled=lambda: False, timeout=120):
                 time.sleep(.15)
         finally:
             if process.poll() is None:
-                process.terminate()
+                if os.name == 'nt':
+                    # The Windows venv/Office launcher can leave a child holding the log.
+                    try:
+                        subprocess.run(['taskkill.exe', '/PID', str(process.pid), '/T', '/F'],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                       timeout=5, creationflags=CREATE_FLAGS)
+                    except subprocess.TimeoutExpired:
+                        pass
+                if process.poll() is None:
+                    process.terminate()
                 try:
                     process.wait(timeout=5)
                 except subprocess.TimeoutExpired:

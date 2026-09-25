@@ -51,7 +51,16 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
       assert.equal(await page.locator('#mask-fields').isVisible(), strategy === 'mask' || strategy.startsWith('hybrid_'));
       assert.doesNotMatch(await page.locator('#candidate-count').textContent(), /条件を確認/);
     }
-    await page.locator('#strategy').selectOption('hybrid_prefix');
+    await page.locator('#strategy').selectOption('guided');
+    await page.locator('#hint-numbers').fill('2024');
+    await page.locator('#hint-combine').check();
+    await page.locator('#hint-typos').check();
+    await page.waitForFunction(() => document.getElementById('hint-summary').textContent.includes('数字'));
+    assert.ok(await page.locator('#guided-fields').isVisible());
+    await page.locator('#recovery-form details summary').click();
+    await page.locator('#workload').selectOption('auto');
+    await page.locator('#recovery-form details summary').click();
+    await page.waitForFunction(() => document.getElementById('candidate-count').textContent.includes('通り'));
     await page.screenshot({path: path.join(data, 'recovery-desktop.png'), fullPage: true});
     await page.setViewportSize({width: 390, height: 844});
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -85,7 +94,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     const second = execFileSync(executable, [...entry, '--data', data, '--no-browser'], {cwd: root, windowsHide: true, encoding: 'utf8'});
     if (!process.env.KAPERIO_EXECUTABLE) assert.match(second, /already running/);
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({passed: true, checks: ['fresh-no-engine', 'licenses', 'five-strategy-controls', 'unlock', 'preview', 'export', 'mobile', 'delete', 'single-instance'], screenshots: data}));
+    console.log(JSON.stringify({passed: true, checks: ['fresh-no-engine', 'licenses', 'six-strategy-controls', 'guided-estimate', 'auto-workload-control', 'unlock', 'preview', 'export', 'mobile', 'delete', 'single-instance'], screenshots: data}));
   } finally {
     if (context && base) await context.request.post(base + '/api/shutdown', {headers: {'X-Kaperio': '1'}, data: {}}).catch(() => {});
     if (browser) await browser.close();

@@ -76,3 +76,50 @@ changes. Eight additional GPU cases passed: 16-byte and 17-byte boundaries,
 New methods have separate end-to-end tests in `tests/strategy_integration.py`.
 Unit tests also include transformed/combined-length bounds so fast kernels cannot
 be selected using only the unmodified base-word length.
+
+## 0.3 mixed-length policy and negative evidence
+
+Same RTX 4060 Laptop/OpenCL/Hashcat 7.1.2, workload 1, 80 C stop. Latest official
+release was checked again on 2026-09-25. No competing GPU job or CPU test suite ran
+during these trials. Editing/docs/network orchestration continued. Clocks and room
+temperature were not controlled; driver throttling warnings remained. These are
+single-machine observations, not universal speedups or superiority to a manually
+partitioned upstream Hashcat job.
+
+With 99,999 ten-byte synthetic words and one 18-byte word, PDF R6 full exhaustion
+took 17.422 / 17.297 / 17.343 seconds with the previous whole-list policy, versus
+10.531 / 10.578 / 10.609 seconds with short/long stages. Alternating three repeats
+gave medians **17.343 vs 10.578 seconds (1.64x)**. Every candidate is retained.
+The long candidate was also made the actual password in a separate recovery test
+and was found after the short stage completed. This is a different workload from
+the earlier short-only 2.58x result; the two speedup factors must not be multiplied.
+
+The split policy was also tested at two lower sizes, with two order-reversed runs
+per policy. Each list contained the short words below plus one long word:
+
+| Short words | Previous median seconds | Forced split median seconds |
+|---|---:|---:|
+| 32,768 | 9.2735 | 9.4845 |
+| 65,536 | 12.3910 | 10.0625 |
+
+**No improvement was accepted at 32,768.** The shipping threshold was raised to
+65,536 base words, only for PDF R6, with tiny lists and other modes left unsplit.
+This is a conservative local heuristic, not a globally optimal crossover. The
+threshold test deliberately forces 32,768 for comparison even after this change.
+
+Guided recovery passed on synthetic PDF RC4-40, PDF R6, Office DOCX and WinZip AES.
+A completed-stage pause/resume recovered the same result without repeating the
+completed stage. These fixtures establish functionality, not a real-world recovery
+percentage or evidence that the heuristic order is statistically optimal.
+
+Workload measurement ran 1,2,3,3,2,1. Higher workload reported higher raw throughput,
+but driver temperature-control warnings invalidated every trial. The tuner correctly
+**retained workload 1**; no tuning speedup is claimed. The final telemetry gate also
+requires temperature availability for every active device. CUDA runtime comparison,
+driver changes, cross-job hardware profiles and physical Mac/Linux GPU measurements
+remain unperformed. Repeated tests/candidates in calibration consume real time.
+
+Reproduce: `tests/planning_integration.py --hashcat PATH --zip2john PATH --benchmark --tune`
+and `tests/split_benchmark.py --hashcat PATH`. Raw synthetic results:
+[planning and mixed list](planning-20260925.json),
+[split threshold](split-threshold-20260925.json).

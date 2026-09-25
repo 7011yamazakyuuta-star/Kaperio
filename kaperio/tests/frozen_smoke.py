@@ -97,7 +97,10 @@ def main():
             assert b'Kaperio' in request('/')[1]
             notices = request('/api/licenses')
             assert notices[0] == 200 and b'Python' in notices[1] and b'pdfium' in notices[1], (notices[0], notices[1][:500])
-            assert api('/api/settings')['version'] == '0.2.0-alpha.1'
+            assert api('/api/settings')['version'] == '0.3.0-alpha.1'
+            estimate = api('/api/recovery/estimate', {'strategy': 'guided', 'words': 'test', 'numbers': '2024'})
+            assert int(estimate['candidates']) > 1 and len(estimate['groups']) == 3
+            checks.append('guided-estimate')
             if args.hashcat:
                 api('/api/settings', {'hashcat': str(args.hashcat.resolve()),
                                      'zip2john': str(args.zip2john.resolve()) if args.zip2john else ''})

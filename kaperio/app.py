@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 from pypdf import PdfReader
 
 from pdf_tools import export_pdf, preview_png
-from recovery import CREATE_FLAGS, WORD_STRATEGIES, run_hashcat, validate_plan, write_inputs
+from recovery import CREATE_FLAGS, WORD_STRATEGIES, clear_execution, has_checkpoint, run_hashcat, validate_plan, write_inputs
 from formats import SUPPORTED, contents, get_hash, inspect_file, unlock_file, office_renderer, render_office, discover_zip2john
 from runtime import APP_DIR, VERSION, data_directory
 
@@ -132,7 +132,7 @@ class Library:
                 public = {k: v for k, v in job.items() if k not in {'plan', 'unlocked'}}
                 public['available'] = bool(job.get('unlocked'))
                 public['has_password'] = job['id'] in self.passwords
-                public['checkpoint'] = (self.folder(job['id']) / 'session.restore').exists()
+                public['checkpoint'] = has_checkpoint(self.folder(job['id']))
                 public['can_resume'] = bool(job.get('plan')) and not job.get('unlocked')
                 public['has_pdf'] = bool(job.get('unlocked') and (job['info']['format'] == 'pdf' or job.get('rendered')))
                 public['can_convert'] = job['info']['format'] == 'pdf' or (job['info']['format'] == 'office' and office_renderer(job['info']['extension']))
@@ -222,7 +222,7 @@ class Library:
                     plan['words'] = [bytes.fromhex(s).decode('utf-8') for s in (folder / 'candidates.hex').read_text().splitlines()]
             else:
                 plan = validate_plan(data)
-                (folder / 'session.restore').unlink(missing_ok=True)
+                clear_execution(folder)
             hash_value, mode = get_hash(folder / job['source'], job['info'], self.hashcat, self.zip2john)
             (folder / 'source.hash').write_text(hash_value + '\n', encoding='ascii')
             write_inputs(folder, plan)
@@ -243,6 +243,8 @@ class Library:
             if result['state'] == 'found':
                 self._unlock(job_id, result['password'])
                 (self.folder(job_id) / 'candidates.hex').unlink(missing_ok=True)
+                for candidate_file in self.folder(job_id).glob('stage-*/candidates.hex'):
+                    candidate_file.unlink(missing_ok=True)
             elif self.jobs[job_id].get('cancel_requested'):
                 self.update(job_id, state='cancelled', message='探索を中止しました。')
             elif result['state'] == 'exhausted':
@@ -475,7 +477,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_data(500, {'error': '処理に失敗しました: ' + str(exc)})
 
     def post_route(self, data):
-        if self.path == '/api/settings':
+        if self.path == '/api/recovery/estimate':
+            plan = validate_plan(data)
+            self.send_data(200, {'candidates': plan['candidates'], 'groups': plan.get('groups', [])})
+            return
+        elif self.path == '/api/settings':
             candidate = Path(data['hashcat']).resolve() if data.get('hashcat') else None
             if candidate and (not candidate.is_file() or candidate.name.lower() not in ('hashcat.exe', 'hashcat', 'hashcat.bin')):
                 raise ValueError('Hashcatの実行ファイルを指定してください。')
