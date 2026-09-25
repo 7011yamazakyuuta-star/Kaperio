@@ -109,6 +109,10 @@ Local verification on Windows 11, 2026-09-25:
   RC4-40 with a 21-byte password from a word/year hint; AES-256 with a 19-byte
   password from a prefix plus one unknown digit; AES-256 with a 127-byte exact
   phrase. Candidate files were removed after successful decryption.
+- An additional frozen-EXE run with actual Hashcat passed 26 checks, including
+  PDF, DOCX, XLSX and PPTX recovery. The smoke-test poller was corrected to wait
+  through the `unlocking` state between finding a candidate and saving a file;
+  this is a test-only race fix, not an application change.
 
 These are bounded functional checks, not a speed benchmark or proof of recovery
 without clues. Native macOS/Linux validation belongs to the CI run for this

@@ -88,7 +88,7 @@ def main():
             def wait_export(jid):
                 for _ in range(300):
                     value = job(jid)
-                    if value['state'] not in ('converting', 'queued', 'recovering'):
+                    if value['state'] not in ('converting', 'queued', 'recovering', 'unlocking'):
                         assert value['state'] == 'ready', value['message']
                         return value
                     time.sleep(.1)
