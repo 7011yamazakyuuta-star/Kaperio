@@ -46,7 +46,7 @@ def main():
         log.write_text(traceback.format_exc(), encoding='utf-8')
         if sys.platform == 'win32' and '--no-browser' not in sys.argv:
             import ctypes
-            ctypes.windll.user32.MessageBoxW(None, 'Startup failed. See: ' + str(log), 'Kaperio', 16)
+            ctypes.windll.user32.MessageBoxW(None, 'Startup failed. See: ' + str(log), 'Loxmit', 16)
         raise
 
 

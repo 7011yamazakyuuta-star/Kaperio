@@ -16,6 +16,81 @@ const child = spawn(executable, [...entry, '--port', '0', '--data', data, '--no-
 const exited = new Promise(resolve => child.once('exit', resolve));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+// Deterministic visual states are browser-only fixtures, never recovery evidence.
+async function designChecks(page, data) {
+  const now = Date.now() / 1000;
+  const names = ['Sample.pdf', '決算_2025_Q2.xlsx', '営業提案_改訂版.pptx', '契約書_雛形.docx', '写真アーカイブ_2019.zip'];
+  const states = ['recovering', 'paused', 'ready', 'locked', 'error'];
+  const jobs = names.map((name, i) => ({
+    id: 'design-' + i, name, size: (3.2 - i * .2) * 1048576, created: now - i * 86400,
+    state: states[i], available: i === 2, has_password: false, can_resume: i === 1,
+    has_pdf: false, can_convert: i !== 4, outputs: [], warnings: [], elapsed: 767,
+    info: {extension: name.slice(name.lastIndexOf('.')), format: i === 0 ? 'pdf' : i === 4 ? 'zip' : 'office', pages: 0, encryption: 'パスワード保護', recoverable: true},
+    plan_summary: i < 2 ? {strategy:'guided',candidates:'8000000',groups:[{name:'元の単語'},{name:'英字大小・数字'},{name:'文字の入れ替え'}],minutes:10,temperature:80,workload:1,kernel:'auto',devices:''} : null,
+    metrics: i === 0 ? {tested:1280000,total:8000000,speed:148220,temperature:67,stage:2,stages:3} : {}, metrics_at: now,
+    message: i === 0 ? '段階 2/3: 英字大小・数字' : '',
+    events: ['ファイルを追加しました。','探索を開始しました。','段階 1/3: 元の単語','段階 2/3: 英字大小・数字'].map((text,k)=>({time:now-300+k*60,text}))
+  }));
+  let disconnected = false;
+  await page.route('**/api/jobs', route => disconnected ? route.abort() : route.fulfill({json:{jobs}}));
+  await page.route('**/api/jobs/design-0/pause', route => {jobs[0].state='paused';jobs[0].can_resume=true;return route.fulfill({json:{ok:true}})});
+  await page.route('**/api/jobs/design-0/resume', route => {jobs[0].state='recovering';jobs[0].metrics_at=Date.now()/1000;return route.fulfill({json:{ok:true}})});
+  await page.setViewportSize({width:1586,height:992});
+  await page.evaluate(() => refresh());
+  await page.locator('#run-summary').waitFor();
+  assert.equal(await page.locator('#job-progress').getAttribute('aria-valuenow'),'16.0');
+  const progress = await page.locator('#progress-fill').boundingBox();
+  const track = await page.locator('#job-progress').boundingBox();
+  assert.ok(Math.abs(progress.width/track.width-.16)<.01);
+  assert.match(await page.locator('#job-progress').getAttribute('class'),/running/);
+  const beforeMotion = await page.locator('.progress-sheen').evaluate(n=>getComputedStyle(n).transform);
+  await delay(250);
+  assert.notEqual(await page.locator('.progress-sheen').evaluate(n=>getComputedStyle(n).transform),beforeMotion);
+  const colours = await page.locator('.file-item .file-symbol').evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n).color));
+  assert.deepEqual(colours,['rgb(217, 35, 46)','rgb(16, 124, 65)','rgb(196, 62, 28)','rgb(24, 90, 189)','rgb(100, 108, 120)']);
+  for (const i of [1,2]) assert.equal(await page.locator('.file-item .status').nth(i).evaluate(n=>getComputedStyle(n).color),'rgb(91, 97, 106)');
+  assert.ok(await page.locator('.brand img').evaluate(n=>n.complete&&n.naturalWidth===64));
+  assert.equal(await page.locator('#preview').isVisible(),false);
+  await page.screenshot({path:path.join(data,'dashboard-active.png'),fullPage:true});
+  await page.locator('.file-item').first().focus();
+  await delay(2100);
+  assert.equal(await page.locator('.file-item').first().evaluate(n=>n===document.activeElement),true);
+  await page.locator('#pause-job').click();
+  await page.locator('#resume-job').waitFor();
+  assert.doesNotMatch(await page.locator('#job-progress').getAttribute('class'),/running/);
+  await page.screenshot({path:path.join(data,'dashboard-paused.png'),fullPage:true});
+  await page.locator('#resume-job').click();
+  await page.locator('#pause-job').waitFor();
+  jobs[0].metrics_at = now - 100;
+  await page.evaluate(() => refresh());
+  assert.doesNotMatch(await page.locator('#job-progress').getAttribute('class'),/running/);
+  jobs[0].metrics_at=Date.now()/1000;
+  await page.evaluate(() => refresh());
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await page.locator('.progress-sheen').evaluate(n=>getComputedStyle(n).display),'none');
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  disconnected=true;await page.evaluate(() => refresh());
+  assert.doesNotMatch(await page.locator('#job-progress').getAttribute('class'),/running/);
+  disconnected=false;await page.evaluate(() => refresh());
+  for(const width of [320,390,768,1024,1440,1920]){
+    await page.setViewportSize({width,height:900});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'overflow at '+width);
+    await page.screenshot({path:path.join(data,'dashboard-'+width+'.png'),fullPage:true});
+  }
+  jobs[0].name='とても長いファイル名_'+('長い名前'.repeat(15))+'_2026.pdf';
+  for(const width of [320,1440]){
+    await page.setViewportSize({width,height:900});await page.evaluate(() => refresh());
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'long name overflow');
+    await page.screenshot({path:path.join(data,'long-name-'+width+'.png'),fullPage:true});
+  }
+  await page.setViewportSize({width:1440,height:1000});
+  await page.locator('.file-item').nth(2).click();
+  await page.locator('#tab-unlock').focus();await page.keyboard.press('ArrowRight');
+  assert.equal(await page.locator('#tab-export').getAttribute('aria-selected'),'true');
+  assert.equal(await page.locator('#tab-export').evaluate(n=>n===document.activeElement),true);
+  await page.unroute('**/api/jobs');
+}
+
 (async () => {
   let browser, context, base;
   try {
@@ -26,7 +101,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     const launch = JSON.parse(fs.readFileSync(path.join(data, 'launch.json'), 'utf8'));
     base = new URL(launch.url).origin;
     browser = await chromium.launch({channel: process.env.KAPERIO_BROWSER || 'msedge', headless: true});
-    context = await browser.newContext({viewport: {width: 1440, height: 1000}});
+    context = await browser.newContext({viewport: {width: 1440, height: 1000}, serviceWorkers: 'block'});
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -93,8 +168,9 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.ok(fs.existsSync(source));
     const second = execFileSync(executable, [...entry, '--data', data, '--no-browser'], {cwd: root, windowsHide: true, encoding: 'utf8'});
     if (!process.env.KAPERIO_EXECUTABLE) assert.match(second, /already running/);
+    await designChecks(page, data);
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({passed: true, checks: ['fresh-no-engine', 'licenses', 'six-strategy-controls', 'guided-estimate', 'auto-workload-control', 'unlock', 'preview', 'export', 'mobile', 'delete', 'single-instance'], screenshots: data}));
+    console.log(JSON.stringify({passed: true, checks: ['fresh-no-engine', 'licenses', 'six-strategy-controls', 'guided-estimate', 'auto-workload-control', 'unlock', 'preview', 'export', 'mobile', 'delete', 'single-instance', 'six-responsive-widths', 'office-colours', 'neutral-states', 'pause-resume-motion', 'stale-offline-motion', 'reduced-motion', 'focus-stability', 'keyboard-tabs'], screenshots: data}));
   } finally {
     if (context && base) await context.request.post(base + '/api/shutdown', {headers: {'X-Kaperio': '1'}, data: {}}).catch(() => {});
     if (browser) await browser.close();

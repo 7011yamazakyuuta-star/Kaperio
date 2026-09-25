@@ -73,7 +73,7 @@ def build(root=ROOT, output=None):
     root = Path(root).resolve()
     spec = specification(root)
     payload = {name: source_bytes(root, name) for name in sorted(spec['files'])}
-    prefix = 'Kaperio-' + spec['version']
+    prefix = 'Loxmit-' + spec['version']
     output = Path(output or root / 'outputs/releases')
     output.mkdir(parents=True, exist_ok=True)
     target = output / (prefix + '-source.zip')
@@ -95,7 +95,7 @@ def build(root=ROOT, output=None):
 
 def verify(target, root=ROOT):
     spec = specification(Path(root))
-    prefix = 'Kaperio-' + spec['version'] + '/'
+    prefix = 'Loxmit-' + spec['version'] + '/'
     expected = {prefix + n for n in spec['files']} | {prefix + MANIFEST}
     with zipfile.ZipFile(target) as archive:
         names = archive.namelist()

@@ -1,4 +1,7 @@
-# Kaperio
+# Loxmit
+
+旧名称はKaperioです。v0.4では、錠前師のピクセルアートアイコンと3カラムの操作画面を採用しました。
+GitHubのリポジトリURLと内部ソースフォルダー名は互換性のため従来のままです。
 
 自分のファイルのパスワード復元と、解除済みファイルの保存を行うローカルアプリです。
 MITライセンスのオープンソース・アルファ版です。Hashcat公式製品ではありません。
@@ -6,11 +9,11 @@ MITライセンスのオープンソース・アルファ版です。Hashcat公�
 [GitHub](https://github.com/7011yamazakyuuta-star/Kaperio) /
 [ダウンロード・リリース](https://github.com/7011yamazakyuuta-star/Kaperio/releases)
 
-- Windows: 配布ZIPを展開し、フォルダー内の `Kaperio.exe` を起動します。`_internal` も必要です。
-- macOS: CPUに合うZIPを展開し `Kaperio.app` を起動します。Apple Silicon版とIntel版は別です。
-- Linux: tar.gzを展開し `Kaperio/Kaperio` を実行します。x86-64、glibc 2.35以降が対象です。
+- Windows: 配布ZIPを展開し、フォルダー内の `Loxmit.exe` を起動します。`_internal` も必要です。
+- macOS: CPUに合うZIPを展開し `Loxmit.app` を起動します。Apple Silicon版とIntel版は別です。
+- Linux: tar.gzを展開し `Loxmit/Loxmit` を実行します。x86-64、glibc 2.35以降が対象です。
 - 配布バイナリはPython不要です。画面は既定のブラウザーで開きます。
-- ソースから起動する場合はPython 3.12を用意し、Windowsでは `Setup.cmd`、`Kaperio.cmd` の順です。
+- ソースから起動する場合はPython 3.12を用意し、Windowsでは `Setup.cmd`、`Loxmit.cmd` の順です。旧ランチャーも利用できます。
 - HashcatとZIP探索用zip2johnは別途公式配布元から用意し、設定画面で指定します。
 - パスワードが分かるファイルの解除にはHashcatは不要です。
 - 原本は変更しません。解除済み文書は暗号化せずローカル保存します。

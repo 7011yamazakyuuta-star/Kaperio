@@ -1,8 +1,9 @@
 # Third-Party Components
 
-Updated 2026-09-24 for the source and desktop alpha. This inventory is not a legal
+Updated 2026-09-25 for the source and desktop alpha. This inventory is not a legal
 opinion, a security certification, or a guarantee about future dependency versions.
-Kaperio's MIT license covers its original application code only.
+Loxmit's MIT license covers its original application code and included brand artwork.
+Third-party components retain their own licenses.
 
 ## Included in the source ZIP
 
@@ -10,7 +11,11 @@ Kaperio's MIT license covers its original application code only.
 |---|---|---|
 | `vendor/office2john.py` | Openwall bleeding-jumbo snapshot, retrieved 2026-09-24 | Permissive notice in the original source and `licenses/office2john.txt` |
 | `static/lucide.min.js` | Lucide 1.8.0 UMD distribution | ISC and Feather-derived MIT notices in `licenses/lucide.txt` |
-| `static/icon-192.png`, `static/icon-512.png` | App icon derived from Lucide's lock-keyhole-open icon | Same Lucide notices |
+
+The Loxmit app icon is the user-approved generated locksmith artwork in
+`static/brand-source.png`. PNG/ICO/ICNS exports are derived from that asset, not
+from Lucide. In-app tool and file-type glyphs still use Lucide. File accents are
+not Microsoft logos and do not imply an affiliation or endorsement.
 
 The office2john file was retained unchanged. It has its own permissive notice;
 this does NOT imply that John the Ripper's complete binary has that same license.
@@ -36,7 +41,7 @@ The exact included file contents are identified by the release SHA-256 manifest.
 
 Invoking a separate CLI is not a blanket exemption from license obligations.
 Do not add these binaries to a release without reviewing their complete terms.
-Kaperio is not an official or endorsed Hashcat, Openwall or Microsoft product.
+Loxmit is not an official or endorsed Hashcat, Openwall or Microsoft product.
 
 ## Python packages installed by the user
 
@@ -55,7 +60,7 @@ That text comes from the official OpenSSL `openssl-4.0.2` tag; OpenSSL 3.x and 4
 use Apache-2.0. Copyright 1998-2026 The OpenSSL Project Authors. The package code is
 unmodified. Development-only openpyxl/python-pptx are not application requirements.
 PyInstaller is build tooling, licensed GPL with a distribution exception; it does
-not change Kaperio's MIT license. No GPL John binary, external Office program,
+not change Loxmit's MIT license. No GPL John binary, external Office program,
 Hashcat binary, GPU driver, or SDK is included in either package type.
 
 - [PyInstaller distribution exception](https://pyinstaller.org/en/stable/license.html)

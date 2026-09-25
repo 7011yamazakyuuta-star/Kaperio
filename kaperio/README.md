@@ -1,4 +1,4 @@
-# Kaperio
+# Loxmit
 
 個人のファイルを開封し、パスワードなしで保存するローカルアプリです。Hashcatを復元エンジンとして使います。原本は変更しません。
 
@@ -6,7 +6,7 @@
 
 Windows EXE、macOS Apple Silicon/Intel用 `.app`、Linux x86-64実行ファイルは
 [GitHub Releases](https://github.com/7011yamazakyuuta-star/Kaperio/releases)で配布します。
-ZIPまたはtar.gzを展開し、Kaperioを起動します。同梱フォルダーはすべて必要です。
+ZIPまたはtar.gzを展開し、Loxmitを起動します。同梱フォルダーはすべて必要です。
 Pythonは不要、Hashcat・zip2johnは別途必要です。画面は既定ブラウザーで開きます。
 署名・公証、実機検証、保存先の詳細は[デスクトップ配布](docs/DESKTOP.md)を参照してください。
 
@@ -19,12 +19,12 @@ Python 3.12以降を [公式サイト](https://www.python.org/downloads/) から
 Hashcat探索には [Hashcat公式](https://hashcat.net/hashcat/) の配布一式を展開し、
 起動後の設定画面で `hashcat.exe` を指定します。ZIP探索には
 [John公式](https://www.openwall.com/john/) の配布一式の `zip2john.exe` も指定します。
-これらのエンジン・DLLはKaperioの公開ZIPには含みません。
+これらのエンジン・DLLはLoxmitの公開ZIPには含みません。
 既知パスワードの解除・保存だけなら、Hashcat/Johnの導入は不要です。
 
 ## 起動
 
-ワークスペース直下の `Kaperio.cmd` をダブルクリックします。ブラウザーが開きます。ファイルを追加し、既知パスワードの入力または探索を選択します。終了は画面右上の電源ボタンです。タブを閉じただけでは処理を継続します。
+ワークスペース直下の `Loxmit.cmd` をダブルクリックします。ブラウザーが開きます。ファイルを追加し、既知パスワードの入力または探索を選択します。終了は画面右上の電源ボタンです。タブを閉じただけでは処理を継続します。
 
 MITライセンスのアルファ版です。ソース版は `../outputs/kaperio/` に作業用コピーと出力を保存します。
 

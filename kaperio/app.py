@@ -1,4 +1,4 @@
-"""Kaperio: local file recovery and conversion workbench."""
+"""Loxmit: local file recovery and conversion workbench."""
 from __future__ import annotations
 
 import argparse
@@ -26,11 +26,26 @@ from pypdf import PdfReader
 from pdf_tools import export_pdf, preview_png
 from recovery import CREATE_FLAGS, WORD_STRATEGIES, clear_execution, has_checkpoint, run_hashcat, validate_plan, write_inputs
 from formats import SUPPORTED, contents, get_hash, inspect_file, unlock_file, office_renderer, render_office, discover_zip2john
-from runtime import APP_DIR, VERSION, data_directory
+from runtime import APP_DIR, APP_NAME, VERSION, data_directory
 
 DEFAULT_DATA = data_directory()
 BUSY = {'queued', 'recovering', 'pausing', 'converting', 'unlocking'}
 MAX_UPLOAD = 100 * 1024 * 1024
+RUNNING = {'recovering', 'converting', 'unlocking', 'pausing'}
+EVENT_LABELS = {
+    'queued': '探索を待機しています。', 'recovering': '探索を開始しました。',
+    'pausing': '停止処理を開始しました。', 'paused': '探索を一時停止しました。',
+    'converting': '書き出しを開始しました。', 'unlocking': 'ファイルを照合しています。',
+    'ready': 'ファイルを保存しました。', 'exhausted': '指定範囲の探索が完了しました。',
+    'cancelled': '処理を中止しました。', 'error': '処理中にエラーが発生しました。',
+}
+
+
+def public_plan(plan):
+    # Never expose remembered words, fixed password fragments, or candidate files.
+    keys = ('strategy', 'min', 'max', 'charsets', 'minutes', 'temperature',
+            'workload', 'kernel', 'devices', 'tune', 'candidates', 'groups')
+    return {key: plan[key] for key in keys if key in plan}
 
 
 def acquire_instance(root):
@@ -83,6 +98,9 @@ class Library:
                 if job['id'] != path.parent.name:
                     continue
                 if job['state'] in BUSY:
+                    started = job.pop('activity_started', None)
+                    if started:
+                        job['elapsed'] = job.get('elapsed', 0) + max(0, job.get('updated', started) - started)
                     job['state'] = 'ready' if job.get('unlocked') else 'paused' if job.get('plan') else 'locked'
                     job['message'] = '前回の処理が中断されました。'
                 self.jobs[job['id']] = job
@@ -99,7 +117,7 @@ class Library:
                     return candidate.resolve()
             except (ValueError, KeyError):
                 pass
-        candidates = [os.environ.get('KAPERIO_HASHCAT', ''),
+        candidates = [os.environ.get('LOXMIT_HASHCAT', ''), os.environ.get('KAPERIO_HASHCAT', ''),
                       shutil.which('hashcat') or '',
                       APP_DIR.parent / 'work' / 'tools' / 'hashcat-7.1.2' / ('hashcat.exe' if os.name == 'nt' else 'hashcat.bin')]
         return next((Path(x).resolve() for x in candidates if x and Path(x).is_file()), None)
@@ -119,17 +137,36 @@ class Library:
     def update(self, job_id, **fields):
         with self.lock:
             job = self.jobs[job_id]
+            now = time.time()
+            before, after = job['state'], fields.get('state', job['state'])
+            if before not in RUNNING and after in RUNNING:
+                fields['activity_started'] = now
+            elif before in RUNNING and after not in RUNNING:
+                started = job.pop('activity_started', now)
+                fields['elapsed'] = job.get('elapsed', 0) + max(0, now - started)
+            if 'metrics' in fields:
+                fields['metrics_at'] = now
+            event = EVENT_LABELS.get(after) if after != before else None
+            message = fields.get('message', '')
+            if not event and message != job.get('message') and message.startswith(('段階 ', 'GPU負荷を測定中')):
+                event = message
+            if event:
+                job['events'] = (job.get('events', []) + [{'time': now, 'text': event}])[-80:]
             warning = fields.pop('warning', None)
             if warning and warning not in job['warnings']:
                 job['warnings'].append(warning)
             job.update(fields)
+            job['updated'] = now
             self.save(job)
 
     def snapshot(self):
         with self.lock:
             result = []
             for job in sorted(self.jobs.values(), key=lambda j: j['created'], reverse=True):
-                public = {k: v for k, v in job.items() if k not in {'plan', 'unlocked'}}
+                public = {k: v for k, v in job.items() if k not in {'plan', 'unlocked', 'activity_started'}}
+                public['plan_summary'] = public_plan(job['plan']) if job.get('plan') else None
+                public['elapsed'] = job.get('elapsed', 0) + (
+                    max(0, time.time() - job['activity_started']) if job.get('activity_started') else 0)
                 public['available'] = bool(job.get('unlocked'))
                 public['has_password'] = job['id'] in self.passwords
                 public['checkpoint'] = has_checkpoint(self.folder(job['id']))
@@ -162,7 +199,8 @@ class Library:
             job = {'id': job_id, 'name': filename(name), 'sha256': digest, 'size': len(content),
                    'created': time.time(), 'state': 'locked', 'info': info, 'outputs': [],
                    'warnings': [], 'message': '', 'metrics': {}, 'unlocked': None,
-                   'source': source.name}
+                   'source': source.name, 'updated': time.time(), 'elapsed': 0,
+                   'events': [{'time': time.time(), 'text': 'ファイルを追加しました。'}]}
             self.jobs[job_id] = job
             self.stops[job_id] = threading.Event()
             if info['empty_password']:
@@ -229,7 +267,8 @@ class Library:
             stop = threading.Event()
             self.stops[job_id] = stop
             self.update(job_id, state='queued', message='探索待ちです。', metrics={}, warnings=[],
-                        plan={k: v for k, v in plan.items() if k != 'words'}, candidates=plan['candidates'])
+                        plan={k: v for k, v in plan.items() if k != 'words'}, candidates=plan['candidates'],
+                        elapsed=job.get('elapsed', 0) if resume else 0)
             self.recovery_pool.submit(self._recover, job_id, mode, plan, resume, stop)
 
     def _recover(self, job_id, mode, plan, resume, stop):
@@ -241,6 +280,7 @@ class Library:
             result = run_hashcat(self.hashcat, self.folder(job_id), mode, plan, stop,
                                  lambda **kw: self.update(job_id, **kw), resume)
             if result['state'] == 'found':
+                self.update(job_id, state='unlocking', message='見つかった候補でファイルを開封しています。')
                 self._unlock(job_id, result['password'])
                 (self.folder(job_id) / 'candidates.hex').unlink(missing_ok=True)
                 for candidate_file in self.folder(job_id).glob('stage-*/candidates.hex'):
@@ -286,7 +326,7 @@ class Library:
             if dpi not in (100, 150, 200, 300):
                 raise ValueError('解像度が範囲外です。')
             self.stops[job_id].clear()
-            self.update(job_id, state='converting', message='書き出しを準備しています。', export_progress=0)
+            self.update(job_id, state='converting', message='書き出しを準備しています。', export_progress=0, elapsed=0)
             self.export_pool.submit(self._export, job_id, kind, dpi, bool(data.get('grayscale', False)))
 
     def _export(self, job_id, kind, dpi, gray):
@@ -343,7 +383,7 @@ class Library:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'Kaperio/0.1'
+    server_version = APP_NAME + '/' + VERSION
 
     def log_message(self, *_):
         pass
@@ -376,7 +416,7 @@ class Handler(BaseHTTPRequestHandler):
             cookie.load(self.headers.get('Cookie', ''))
         except Exception:
             return False
-        value = cookie.get('kaperio_session')
+        value = cookie.get('loxmit_session') or cookie.get('kaperio_session')
         return bool(value and secrets.compare_digest(value.value, self.server.token))
 
     def do_GET(self):
@@ -393,10 +433,10 @@ class Handler(BaseHTTPRequestHandler):
             supplied = parse_qs(url.query).get('token', [''])[0]
             if self.headers.get('Host') == self.server.authority and secrets.compare_digest(supplied, self.server.token):
                 secure = '; Secure' if self.server.tls else ''
-                self.send_data(303, b'', extra={'Location': '/', 'Set-Cookie': f'kaperio_session={self.server.token}; HttpOnly; SameSite=Strict; Path=/' + secure})
+                self.send_data(303, b'', extra={'Location': '/', 'Set-Cookie': f'loxmit_session={self.server.token}; HttpOnly; SameSite=Strict; Path=/' + secure})
                 return
         if not self.authorized():
-            self.send_data(403, {'error': 'Kaperioからアプリを起動してください。'})
+            self.send_data(403, {'error': 'Loxmitからアプリを起動してください。'})
             return
         path = url.path
         if path == '/api/jobs':
@@ -406,8 +446,8 @@ class Handler(BaseHTTPRequestHandler):
                                  'zip2john': str(self.library.zip2john or ''),
                                  'version': VERSION, 'connection': self.server.origin, 'tls': self.server.tls})
         elif path == '/api/licenses':
-            texts = ['Kaperio third-party notices\n' + (APP_DIR / 'THIRD_PARTY.md').read_text(encoding='utf-8'),
-                     'Kaperio license\n' + (APP_DIR / 'LICENSE').read_text(encoding='utf-8')]
+            texts = ['Loxmit third-party notices\n' + (APP_DIR / 'THIRD_PARTY.md').read_text(encoding='utf-8'),
+                     'Loxmit license\n' + (APP_DIR / 'LICENSE').read_text(encoding='utf-8')]
             for file in sorted((APP_DIR / 'licenses').rglob('*.txt')):
                 raw = file.read_bytes()
                 try:
@@ -440,16 +480,17 @@ class Handler(BaseHTTPRequestHandler):
         else:
             static = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/lucide.js': 'lucide.min.js',
                       '/manifest.webmanifest': 'manifest.webmanifest', '/service-worker.js': 'service-worker.js',
-                      '/icon-192.png': 'icon-192.png', '/icon-512.png': 'icon-512.png'}
+                      '/icon-192.png': 'icon-192.png', '/icon-512.png': 'icon-512.png',
+                      '/icon-64.png': 'icon-64.png', '/favicon.ico': 'favicon.ico'}
             if path not in static:
                 self.send_data(404, {'error': '見つかりません。'})
                 return
             file = APP_DIR / 'static' / static[path]
-            mime = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.webmanifest': 'application/manifest+json', '.png': 'image/png'}[file.suffix]
+            mime = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.ico': 'image/x-icon'}[file.suffix]
             self.send_data(200, file.read_bytes(), mime)
 
     def do_POST(self):
-        if not self.authorized() or self.headers.get('X-Kaperio') != '1':
+        if not self.authorized() or not (self.headers.get('X-Loxmit') == '1' or self.headers.get('X-Kaperio') == '1'):
             self.send_data(403, {'error': 'この操作はアプリ画面から実行してください。'})
             return
         origin = self.headers.get('Origin')
@@ -536,7 +577,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--version', action='version', version='Kaperio ' + VERSION)
+    parser.add_argument('--version', action='version', version=APP_NAME + ' ' + VERSION)
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--data', type=Path, default=DEFAULT_DATA)
     parser.add_argument('--no-browser', action='store_true')
@@ -557,7 +598,7 @@ def main():
                 webbrowser.open(existing['url'])
             except (OSError, ValueError, KeyError):
                 pass
-        print('Kaperio is already running for this data directory.', flush=True)
+        print(APP_NAME + ' is already running for this data directory.', flush=True)
         return
     library = Library(args.data)
     server = None
@@ -581,7 +622,7 @@ def main():
     server.daemon_threads = True
     url = server.origin + '/launch?token=' + server.token
     (library.root / 'launch.json').write_text(json.dumps({'url': url, 'pid': os.getpid()}), encoding='utf-8')
-    print('Kaperio is running at ' + server.origin, flush=True)
+    print(APP_NAME + ' is running at ' + server.origin, flush=True)
     if not args.no_browser:
         webbrowser.open(url)
     try:

@@ -53,6 +53,18 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request('POST','/api/import',b'not a pdf',headers)[0],400)
         self.assertEqual(self.library.snapshot(),[])
 
+    def test_loxmit_brand_and_authentication(self):
+        headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1'}
+        self.assertEqual(self.request('GET', '/api/jobs', headers=headers)[0], 200)
+        self.assertEqual(self.request('POST', '/api/settings', '{}', headers)[0], 200)
+        for asset in ('/', '/app.js', '/icon-64.png', '/favicon.ico'):
+            status, body = self.request('GET', asset, headers=headers)
+            self.assertEqual(status, 200, asset)
+            self.assertGreater(len(body), 100)
+        self.assertIn(b'Loxmit', self.request('GET', '/', headers=headers)[1])
+        headers['Origin'] = 'https://other.example'
+        self.assertEqual(self.request('POST', '/api/settings', '{}', headers)[0], 403)
+
     def test_guided_estimate_requires_auth_and_does_not_store_hints(self):
         data = json.dumps({'strategy': 'guided', 'words': 'PrivateHint', 'numbers': '2024'})
         self.assertEqual(self.request('POST', '/api/recovery/estimate', data)[0], 403)

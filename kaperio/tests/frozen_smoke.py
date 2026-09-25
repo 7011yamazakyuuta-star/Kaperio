@@ -22,6 +22,7 @@ from pypdf import PdfReader
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from test_core import make_pdf
+from runtime import VERSION
 
 
 def main():
@@ -41,7 +42,7 @@ def main():
         assert crypto_check.returncode == 0 and crypto_result['ok'], crypto_result
         data = root / 'library'
         command = [str(executable), '--port', '0', '--data', str(data), '--no-browser']
-        environment = dict(os.environ, KAPERIO_HASHCAT='', KAPERIO_ZIP2JOHN='')
+        environment = dict(os.environ, LOXMIT_HASHCAT='', LOXMIT_ZIP2JOHN='', KAPERIO_HASHCAT='', KAPERIO_ZIP2JOHN='')
         process = subprocess.Popen(command, cwd=root, env=environment, stdout=subprocess.DEVNULL,
                                    stderr=subprocess.DEVNULL)
         launch = None
@@ -62,9 +63,9 @@ def main():
 
             def request(path, body=None, name=None, authenticated=True):
                 client = http.client.HTTPConnection(url.hostname, url.port, timeout=30)
-                headers = {'X-Kaperio': '1'}
+                headers = {'X-Loxmit': '1'}
                 if authenticated:
-                    headers['Cookie'] = 'kaperio_session=' + token
+                    headers['Cookie'] = 'loxmit_session=' + token
                 if name:
                     headers['X-Filename'] = quote(name)
                 if isinstance(body, dict):
@@ -94,10 +95,13 @@ def main():
                 raise TimeoutError('Export did not complete')
 
             assert request('/api/jobs', authenticated=False)[0] == 403
-            assert b'Kaperio' in request('/')[1]
+            assert b'Loxmit' in request('/')[1]
+            for asset in ('icon-64.png', 'icon-192.png', 'icon-512.png', 'favicon.ico'):
+                status, content = request('/' + asset)
+                assert status == 200 and len(content) > 100, asset
             notices = request('/api/licenses')
             assert notices[0] == 200 and b'Python' in notices[1] and b'pdfium' in notices[1], (notices[0], notices[1][:500])
-            assert api('/api/settings')['version'] == '0.3.0-alpha.1'
+            assert api('/api/settings')['version'] == VERSION
             estimate = api('/api/recovery/estimate', {'strategy': 'guided', 'words': 'test', 'numbers': '2024'})
             assert int(estimate['candidates']) > 1 and len(estimate['groups']) == 3
             checks.append('guided-estimate')

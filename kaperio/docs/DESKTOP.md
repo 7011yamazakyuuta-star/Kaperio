@@ -1,4 +1,9 @@
-# Kaperio Desktop 0.3.0-alpha.1
+# Loxmit Desktop 0.4.0-alpha.1
+
+Formerly Kaperio. The repository URL, internal source directory, legacy launchers,
+and Hashcat session identifiers are intentionally unchanged. This preserves links
+and recovery checkpoints. See `design-qa.md` for the v0.4 validation boundary;
+earlier native-runner results do not automatically validate a new release.
 
 ## Downloads
 
@@ -8,10 +13,10 @@ The source ZIP is independent of the native bundles. No app store is required.
 
 | Platform | Package | Launch | Status boundary |
 |---|---|---|---|
-| Windows x86-64 | ZIP | `Kaperio.exe` | Local Windows 11 testing; GPU tested separately |
-| macOS Apple Silicon | ZIP containing `.app` | `Kaperio.app` | Native hosted build/smoke, not physical GPU validation |
-| macOS Intel | ZIP containing `.app` | `Kaperio.app` | Native hosted build/smoke, not physical GPU validation |
-| Linux x86-64 | tar.gz | `Kaperio/Kaperio` | Ubuntu 22.04 build; glibc >= 2.35, not every distro |
+| Windows x86-64 | ZIP | `Loxmit.exe` | Local Windows testing; GPU tested separately |
+| macOS Apple Silicon | ZIP containing `.app` | `Loxmit.app` | Requires native hosted build/smoke, not physical GPU validation |
+| macOS Intel | ZIP containing `.app` | `Loxmit.app` | Requires native hosted build/smoke, not physical GPU validation |
+| Linux x86-64 | tar.gz | `Loxmit/Loxmit` | Requires Ubuntu 22.04 build; glibc >= 2.35, not every distro |
 
 These are portable application bundles, not a single standalone executable and not installers.
 Keep all files together. The app starts a local HTTP service and opens the default browser.
@@ -28,13 +33,15 @@ certificates/account and is outside this alpha release.
 
 ## Local data
 
-- Windows: `%LOCALAPPDATA%/Kaperio`
-- macOS: `~/Library/Application Support/Kaperio`
-- Linux: `$XDG_DATA_HOME/kaperio`, or `~/.local/share/kaperio`
+- Windows: `%LOCALAPPDATA%/Loxmit`
+- macOS: `~/Library/Application Support/Loxmit`
+- Linux: `$XDG_DATA_HOME/loxmit`, or `~/.local/share/loxmit`
 - Override with `--data DIRECTORY`; source launches retain `outputs/kaperio`.
 
 The application retains imported copies, recovery inputs, checkpoints, and plaintext outputs.
-Protect this directory. It is never included in release bundles. Renaming Hiraku does not
+Protect this directory. It is never included in release bundles. If the old Kaperio
+directory exists and the new Loxmit directory does not, it is reused in place.
+Nothing is automatically moved or deleted. Renaming Hiraku does not
 automatically move or delete old user data; use `--data` explicitly to reuse an old library.
 The original documents are not modified. Use the app's power button to stop its service.
 
@@ -44,18 +51,18 @@ The official latest stable release verified on 2026-09-24 is
 [Hashcat 7.1.2](https://github.com/hashcat/hashcat/releases/tag/v7.1.2), published 2025-08-23.
 The official `hashcat-7.1.2.7z` SHA-256 is
 `80db0316387794ce9d14ed376da75b8a7742972485b45db790f5f8260307ff98`.
-Set the executable in Settings, or use `KAPERIO_HASHCAT`. Use a native executable and
+Set the executable in Settings, or use `LOXMIT_HASHCAT` (`KAPERIO_HASHCAT` remains supported). Use a native executable and
 the complete upstream installation for your OS, not another OS's binary.
 On macOS Hashcat support still depends on the OS/GPU/backend supported by upstream.
 
-Kaperio uses upstream kernels unchanged. Auto mode requests `-O` for supported PDF
+Loxmit uses upstream kernels unchanged. Auto mode requests `-O` for supported PDF
 modes only when every candidate in the stage is at most 16 UTF-8 bytes.
 No candidate is silently removed to improve speed.
 PDF R6 mixed lists split when at least 65,536 base words fit the optimized bound;
 short words use the optimized kernel and long words retain the pure kernel.
 Smaller lists and other modes stay in one process to avoid extra startup costs.
 The pure option allows comparison. Office and ZIP retain their normal kernels.
-Hashcat performs its own device-specific autotuning on each run; Kaperio does not
+Hashcat performs its own device-specific autotuning on each run; Loxmit does not
 hardcode device acceleration, loop counts, or clock speeds. Higher workload settings
 remain user-selectable and may affect responsiveness. No profile is fastest on every GPU.
 Default workload 1 and temperature abort at 80 C remain in place. No `--force`,

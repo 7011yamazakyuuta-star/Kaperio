@@ -37,7 +37,7 @@ PDFiumなどのネイティブ部品の表示、Python/OpenSSLの条件とバー
 
 ```powershell
 python kaperio/scripts/release.py build
-python kaperio/scripts/release.py verify outputs/releases/Kaperio-0.2.0-alpha.1-source.zip
+python kaperio/scripts/release.py verify outputs/releases/Loxmit-0.4.0-alpha.1-source.zip
 ```
 
 各ファイルのSHA-256をZIP内のRELEASE-MANIFEST.jsonへ記録し、ZIP自体のSHA-256も別ファイルへ出力します。

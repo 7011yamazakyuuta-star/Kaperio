@@ -11,13 +11,13 @@ jobs:
       matrix:
         include:
           - os: windows-2022
-            executable: dist/Kaperio/Kaperio.exe
+            executable: dist/Loxmit/Loxmit.exe
           - os: macos-14
-            executable: dist/Kaperio.app/Contents/MacOS/Kaperio
+            executable: dist/Loxmit.app/Contents/MacOS/Loxmit
           - os: macos-15-intel
-            executable: dist/Kaperio.app/Contents/MacOS/Kaperio
+            executable: dist/Loxmit.app/Contents/MacOS/Loxmit
           - os: ubuntu-22.04
-            executable: dist/Kaperio/Kaperio
+            executable: dist/Loxmit/Loxmit
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     defaults:
@@ -42,7 +42,7 @@ jobs:
       - name: Upload verified native bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Kaperio-${{ matrix.os }}
+          name: Loxmit-${{ matrix.os }}
           path: kaperio/dist/releases/*
           if-no-files-found: error
           retention-days: 14
