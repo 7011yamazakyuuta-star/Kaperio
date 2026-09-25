@@ -12,5 +12,8 @@
 *.restore
 *.hash
 *.hex
-/hiraku/vendor/john/
+/kaperio/vendor/john/
 /RELEASE-MANIFEST.json
+**/build/
+**/dist/
+**/*.spec
