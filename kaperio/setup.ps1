@@ -20,5 +20,5 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
 if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed. Check your internet access and Python installation.' }
 & $venvPython -c 'import pypdf, pypdfium2, reportlab, docx, PIL, cryptography, msoffcrypto, pyzipper'
 if ($LASTEXITCODE -ne 0) { throw 'Dependency import check failed.' }
-Write-Host 'Setup complete. Open Kaperio.cmd. Configure Hashcat and optional zip2john in Settings.'
+Write-Host 'Setup complete. Open Loxmit.cmd. Configure Hashcat and optional zip2john in Settings.'
 Write-Host 'External tools are not bundled. See kaperio/docs/DISTRIBUTION.md.'

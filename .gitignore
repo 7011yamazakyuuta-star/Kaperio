@@ -13,6 +13,8 @@
 *.hash
 *.hex
 /kaperio/vendor/john/
+/kaperio/component_pack/
+/.upstream-hashcat/
 /RELEASE-MANIFEST.json
 **/build/
 **/dist/

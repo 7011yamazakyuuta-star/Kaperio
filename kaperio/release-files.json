@@ -1,26 +1,30 @@
 {
-  "version": "0.3.0-alpha.1",
+  "version": "0.4.0-alpha.8",
   "files": [
-    ".gitignore", "LICENSE", "README.md", "Setup.cmd", "Kaperio.cmd",
+    ".gitignore", "LICENSE", "README.md", "Setup.cmd", "Kaperio.cmd", "Loxmit.cmd",
     ".github/workflows/desktop.yml",
     "kaperio/LICENSE", "kaperio/README.md", "kaperio/SECURITY.md", "kaperio/THIRD_PARTY.md",
     "kaperio/app.py", "kaperio/formats.py", "kaperio/pdf_tools.py", "kaperio/recovery.py", "kaperio/converter.py", "kaperio/candidates.py",
-    "kaperio/desktop.py", "kaperio/runtime.py", "kaperio/scripts/build_desktop.py",
+    "kaperio/desktop.py", "kaperio/runtime.py", "kaperio/environment_setup.py", "kaperio/scripts/build_desktop.py", "kaperio/scripts/build_engine_pack.py", "kaperio/scripts/build_icons.py",
     "kaperio/office_render.ps1", "kaperio/launch.ps1", "kaperio/launch.sh", "kaperio/setup.ps1", "kaperio/setup.sh",
     "kaperio/requirements.txt", "kaperio/requirements-dev.txt", "kaperio/requirements-tested.txt",
     "kaperio/release-files.json", "kaperio/scripts/release.py",
     "kaperio/licenses/lucide.txt", "kaperio/licenses/office2john.txt", "kaperio/vendor/office2john.py",
     "kaperio/licenses/OpenSSL-Apache-2.0.txt",
-    "kaperio/static/index.html", "kaperio/static/app.js", "kaperio/static/style.css", "kaperio/static/lucide.min.js",
+    "kaperio/static/index.html", "kaperio/static/app.js", "kaperio/static/setup.js", "kaperio/static/style.css", "kaperio/static/lucide.min.js",
     "kaperio/static/manifest.webmanifest", "kaperio/static/service-worker.js", "kaperio/static/icon-192.png", "kaperio/static/icon-512.png",
+    "kaperio/static/icon-64.png", "kaperio/static/favicon.ico", "kaperio/static/icon.icns", "kaperio/static/brand-source.png",
     "kaperio/docs/DISTRIBUTION.md", "kaperio/docs/research.md", "kaperio/docs/validation.md",
     "kaperio/docs/DESKTOP.md", "kaperio/tests/benchmark.py", "kaperio/tests/kernel_coverage.py",
     "kaperio/tests/dictionary_benchmark.py",
-    "kaperio/tests/strategy_integration.py",
+    "kaperio/tests/strategy_integration.py", "kaperio/tests/interview_integration.py",
     "kaperio/docs/PERFORMANCE.md", "kaperio/docs/mask-20260925.json", "kaperio/docs/dictionary-20260925.json",
     "kaperio/docs/planning-20260925.json", "kaperio/docs/split-threshold-20260925.json",
     "kaperio/tests/test_core.py", "kaperio/tests/test_converter.py", "kaperio/tests/test_http.py", "kaperio/tests/test_release.py",
     "kaperio/tests/test_desktop.py", "kaperio/tests/frozen_smoke.py", "kaperio/tests/test_planning.py", "kaperio/tests/planning_integration.py", "kaperio/tests/split_benchmark.py",
-    "kaperio/tests/integration.py", "kaperio/tests/recovery-controls.py", "kaperio/tests/release-smoke.cjs"
+    "kaperio/tests/integration.py", "kaperio/tests/recovery-controls.py", "kaperio/tests/release-smoke.cjs",
+    "kaperio/tests/test_design.py", "kaperio/tests/test_setup.py", "kaperio/tests/setup_integration.py", "kaperio/docs/design-qa.md", "kaperio/docs/SETUP.md",
+    "kaperio/tests/test_streaming.py", "kaperio/tests/large_documents.py", "kaperio/docs/LARGE_FILES.md",
+    "kaperio/docs/large-before-20260925.json", "kaperio/docs/large-after-20260925.json"
   ]
 }

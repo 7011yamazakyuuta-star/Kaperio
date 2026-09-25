@@ -1,0 +1,179 @@
+# Loxmit design verification
+
+## Accepted direction
+
+The user-approved light three-column dashboard and yellow-work-cap locksmith
+pixel artwork are the visual references. The selected character is preserved in
+`static/brand-source.png`; `scripts/build_icons.py` only normalizes transparent
+margins and produces PNG, ICO, and ICNS sizes. It does not redraw the character.
+The generated artwork is included under this project's MIT license.
+
+- Neutral file library, unframed work area, right-side run inspector.
+- Active blue `#2563eb`; paused and completed states neutral `#5b616a`.
+- File accents: Word `#185abd`, Excel `#107c41`, PowerPoint `#c43e1c`.
+- PDF uses a red Lucide document icon. No third-party product logo is copied.
+- Determinate progress keeps its true width. Its directional highlight is clipped
+  to that width and stops on pause, cancellation, completion, lost connection,
+  hidden tab, or telemetry older than eight seconds. Reduced motion removes it.
+- No success-probability meter, speculative ETA, or placeholder execution log.
+- Event history is bounded to 80 entries; public summaries exclude password hints.
+- File-list DOM rows remain stable during polling to preserve keyboard focus.
+- Existing decryption, six recovery methods, preview and export remain connected
+  to the actual backend. Private documents are not used for acceptance tests.
+
+## Intentional differences from the reference
+
+The current stage is the real candidate-preparation/search/open lifecycle, not
+the mock's fabricated pipeline. The summary omits remembered password fragments.
+Actual throughput uses Hashcat's H/s units. Forms are editable before execution;
+a read-only summary replaces them while running. An unlocked document has its
+real preview, whereas a locked document does not reserve an empty preview panel.
+Small-screen columns stack and the library becomes a horizontal file list.
+
+## Verification
+
+The original dashboard revision (0.4.0-alpha.1) was verified locally on Windows 11 on 2026-09-25:
+
+- 36 unit/HTTP tests passed, including elapsed-time pause/restart accounting,
+  event-history limits, secret-free summaries, old-library compatibility on
+  mocked Windows/macOS/Linux paths, and icon sizes/transparency.
+- Packaged Windows EXE passed 18 frozen checks: authentication, notices, assets,
+  guided estimation, four PDF encryption revisions, preview, four PDF export
+  formats, DOCX/XLSX/PPTX byte-preserving decryption, ZIP, single instance and
+  original-preserving deletion.
+- Edge browser acceptance passed against the final EXE. Six recovery methods,
+  known-password unlock, preview, export, settings and deletion were exercised.
+- Screenshots reviewed at 1586x992 and 320x900; automated no-horizontal-overflow
+  checks passed at 320, 390, 768, 1024, 1440 and 1920 pixels. Long Japanese
+  filenames were also checked at 320 and 1440 pixels.
+- Browser assertions verify Office colours, neutral completed/paused colours,
+  actual changing animation transforms, exact determinate progress width,
+  pause/resume, stale telemetry, disconnect, reduced motion, stable focused
+  rows across polls and arrow-key tab navigation. No page JavaScript errors.
+- PNG, Windows ICO and macOS ICNS artwork generated and inspected; the Windows
+  executable includes the ICO. macOS/Linux native execution is not locally
+  verified by these Windows tests. Their existing build matrix uses Loxmit names.
+
+Screenshots from `tests/release-smoke.cjs` use synthetic documents and explicit
+browser-only state fixtures. They are UI evidence, not GPU performance evidence.
+Previous Kaperio benchmarks remain historical and the engine is unchanged.
+
+## Settings and first-run revision (0.4.0-alpha.2)
+
+Observed issues in the previous settings screen: empty executable fields had no
+availability state; engine paths and output location had equal visual emphasis;
+GPU diagnostics used saved settings rather than the path currently being edited.
+The local demonstration launcher also pointed at an existing development library,
+which mixed test documents and an earlier user-imported document.
+
+The revised settings view groups availability, engines and storage in separate
+unframed sections. Manual paths are collapsed; auto-detection is explicit and
+read-only. Validation errors identify the input. The GPU action explicitly saves
+an edited path before querying it. GPU query results are not speed evidence.
+
+The local launcher now uses the normal application data directory, with zero
+initial documents. The old development library and original files are retained,
+not deleted. No sample document exists in the application bundle or startup code.
+
+Validation: 41 unit/HTTP tests pass. Browser acceptance checks zero initial files,
+availability labels, read-only detection, field-specific errors, save-before-query,
+and settings layouts at 320, 390 and 1440 pixels, plus the dashboard regression
+checks above. The GPU response in this browser test is explicitly synthetic; a
+separate unit test checks the actual subprocess argument uses the saved path.
+The final Windows EXE also passed 20 frozen HTTP checks and all 25 browser
+acceptance groups, including zero-file startup and read-only detection.
+
+The previous dashboard commit `1f8f762` passed all four native hosted builds and
+frozen tests in [run 36107254054](https://github.com/7011yamazakyuuta-star/Loxmit/actions/runs/36107254054).
+This is evidence for that commit only; the settings revision requires its own run.
+
+## Recovery interview (0.4.0-alpha.5)
+
+The default view is now password recovery, with known-password opening as a
+separate choice. An optional-answers interview replaces the initial six-method
+menu; those methods remain available in manual mode. Unknown length/characters
+are explicit answers. A preview lists the actual bounded subsets, time budget,
+and coverage limitations. Masks accept up to 127 ASCII characters, subject to
+combined byte, engine and keyspace limits. Hints can be long UTF-8 phrases.
+
+Local verification on Windows 11, 2026-09-25:
+
+- 61 unit/HTTP tests passed, including empty-hint plans, UTF-8 boundaries, private
+  summaries, format-specific limits, mask-stage resume and bounded truncation.
+- The final alpha.5 Windows EXE passed 22 frozen integration checks and 31 browser
+  acceptance groups. Interview layouts were checked at 320, 390, 768 and 1440px;
+  existing dashboard regression checks still cover six widths. No JS errors.
+- Screenshots were visually inspected at desktop and 320px. No horizontal page
+  overflow occurred. Test documents and UI status fixtures are synthetic only.
+- Hashcat 7.1.2 on the local NVIDIA GPU recovered and verified generated PDFs:
+  RC4-40 with a 21-byte password from a word/year hint; AES-256 with a 19-byte
+  password from a prefix plus one unknown digit; AES-256 with a 127-byte exact
+  phrase. Candidate files were removed after successful decryption.
+- An additional frozen-EXE run with actual Hashcat passed 26 checks, including
+  PDF, DOCX, XLSX and PPTX recovery. The smoke-test poller was corrected to wait
+  through the `unlocking` state between finding a candidate and saving a file;
+  this is a test-only race fix, not an application change.
+
+These are bounded functional checks, not a speed benchmark or proof of recovery
+without clues. Native macOS/Linux validation belongs to the CI run for this
+revision; earlier green runs do not validate this change.
+
+## Visible password result (0.4.0-alpha.6)
+
+The completed result now has a labelled, selectable, read-only password field
+above the download action. It is visible by default, in 20px monospace text.
+An explicit Copy button reports success or failure; the optional eye control
+hides the value without preventing copying. A denied clipboard operation never
+unhides a hidden password. Copy preserves whitespace, Unicode and long values.
+
+The UI fetches the current result once, not on every status poll. Changing files
+clears the field immediately and rejects stale responses. Fetch failures show a
+retry action; unavailable passwords have no result panel. No password is added
+to persistent storage, public job summaries, logs or generated release files.
+
+Local Windows verification on 2026-09-25:
+
+- 61 unit/HTTP tests passed, plus 22 frozen-EXE integration checks.
+- All 38 browser acceptance groups passed against source and the final alpha.6
+  EXE, with no page JavaScript errors. The additional cases cover visible results,
+  exact copying, denied copying, stale responses, retry, long text and clearing.
+- Result layouts were checked at 320, 390, 768 and 1440px without page overflow
+  or overlapping controls. Desktop and 320px screenshots were visually reviewed.
+- Clipboard acceptance uses a page-local mock, not the user's system clipboard.
+  Synthetic documents and password fixtures are used throughout these tests.
+- The running local installation received only the three static UI files, with
+  backups. Its service was not restarted, preserving its in-memory result. Its
+  backend version remains alpha.5; the new distributable is alpha.6.
+
+This revision changes presentation only. Native macOS/Linux build results must
+be checked for this revision separately; no new GPU performance claim is made.
+
+## Optional setup and GPU inventory (0.4.0-alpha.7)
+
+A dismissible, empty-library tutorial now links to GPU diagnostics and optional
+component setup. The help icon reopens it. The three views use the existing light
+dashboard, Lucide controls and responsive dialog layout, without sample files.
+Separate unchecked consent is required for each component. Progress, failure,
+cancellation and retry remain explicit; no download starts merely by opening it.
+
+Local Windows verification on 2026-09-25:
+
+- 74 unit/HTTP tests passed, including pinned consent, download integrity and
+  size limits, hostile redirects, disk failures, cancellation, concurrent work,
+  minimal runtime extraction, existing settings and child-only environment.
+- The alpha.7 EXE passed 25 frozen integration checks and 46 browser acceptance
+  groups (38 existing and eight setup groups). Setup views were checked at 320,
+  390, 768 and 1440px. Desktop/tutorial and 320px/diagnostic screenshots were
+  visually reviewed; no horizontal dialog overflow or page JS errors occurred.
+- An explicitly enabled isolated integration downloaded official Hashcat 7.1.2,
+  verified its SHA-256, extracted it, configured it, checked its version and
+  queried the NVIDIA RTX 4060 Laptop GPU and Intel UHD Graphics over OpenCL.
+  The integration caught and corrected the required Hashcat working directory.
+- Neither that integration nor the fixture tests installed NVRTC or modified
+  drivers. NVRTC extraction uses synthetic fixtures; actual NVRTC loading and
+  CUDA computation remain unverified until the user consents to that component.
+
+Automatic installation is deliberately Windows x64 only. macOS/Linux retain
+manual engine setup; inventory adapters exist but their actual hardware results
+are not established by these Windows checks. Native build results belong to the
+CI run for this commit, not earlier green runs. See `SETUP.md` for boundaries.

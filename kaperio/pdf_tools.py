@@ -54,7 +54,11 @@ def extract_hash(reader):
 
 
 def inspect_pdf(path):
-    reader = PdfReader(path, strict=False)
+    with path.open('rb') as stream:
+        return inspect_reader(PdfReader(stream, strict=False))
+
+
+def inspect_reader(reader):
     info = {'encrypted': reader.is_encrypted, 'pages': None, 'mode': None,
             'revision': None, 'recoverable': False, 'encryption': '暗号化なし'}
     if reader.is_encrypted:
@@ -79,21 +83,25 @@ def inspect_pdf(path):
 
 
 def unlock_pdf(source, password, target):
-    reader = PdfReader(source, strict=False)
-    if reader.is_encrypted and not reader.decrypt(password):
-        raise ValueError('パスワードが一致しません。')
-    writer = PdfWriter()
-    writer.clone_document_from_reader(reader)
     temporary = target.with_suffix('.partial')
     try:
-        writer.write(temporary)
-        result = PdfReader(temporary)
-        if result.is_encrypted or len(result.pages) != len(reader.pages):
-            raise ValueError('保存後のPDF検証に失敗しました。')
+        with source.open('rb') as stream:
+            reader = PdfReader(stream, strict=False)
+            if reader.is_encrypted and not reader.decrypt(password):
+                raise ValueError('パスワードが一致しません。')
+            writer = PdfWriter()
+            writer.clone_document_from_reader(reader)
+            count = len(reader.pages)
+            writer.write(temporary)
+            writer.close()
+        with temporary.open('rb') as stream:
+            result = PdfReader(stream)
+            if result.is_encrypted or len(result.pages) != count:
+                raise ValueError('保存後のPDF検証に失敗しました。')
         temporary.replace(target)
     finally:
         temporary.unlink(missing_ok=True)
-    return len(reader.pages)
+    return count
 
 
 def render_page(source, number, dpi=110, grayscale=False):
@@ -128,19 +136,24 @@ def preview_png(source, number):
 def export_pdf(source, target, kind, dpi, grayscale, progress, cancelled):
     if kind not in {'image_pdf', 'word', 'images', 'text'}:
         raise ValueError('未対応の出力形式です。')
-    count = len(PdfReader(source).pages)
+    with source.open('rb') as stream:
+        _export_pdf(PdfReader(stream), source, target, kind, dpi, grayscale, progress, cancelled)
+
+
+def _export_pdf(reader, source, target, kind, dpi, grayscale, progress, cancelled):
+    count = len(reader.pages)
     temporary = target.with_suffix('.partial')
     doc = Document() if kind == 'word' else None
     output_canvas = canvas.Canvas(str(temporary)) if kind == 'image_pdf' else None
     archive = zipfile.ZipFile(temporary, 'w', zipfile.ZIP_DEFLATED) if kind == 'images' else None
-    texts = []
+    text_output = temporary.open('w', encoding='utf-8') if kind == 'text' else None
     try:
         for index in range(count):
             if cancelled():
                 raise InterruptedError('書き出しを中止しました。')
             if kind == 'text':
-                text = PdfReader(source).pages[index].extract_text() or ''
-                texts.append(f'## Page {index + 1}\n\n{text}\n')
+                text = reader.pages[index].extract_text() or ''
+                text_output.write(f'## Page {index + 1}\n\n{text}\n\n')
             else:
                 image, (width, height) = render_page(source, index, dpi, grayscale)
                 stream = io.BytesIO()
@@ -165,23 +178,27 @@ def export_pdf(source, target, kind, dpi, grayscale, progress, cancelled):
                     paragraph.paragraph_format.line_spacing = 1
                     paragraph.add_run().add_picture(stream, width=Pt(width - 2), height=Pt(height - 3))
                     paragraph.runs[0].font.size = Pt(1)
+                stream.close()
             progress(index + 1, count)
         if output_canvas:
             output_canvas.save()
-            check = PdfReader(temporary)
-            if check.is_encrypted or len(check.pages) != count:
-                raise ValueError('画像PDFの検証に失敗しました。')
+            with temporary.open('rb') as stream:
+                check = PdfReader(stream)
+                if check.is_encrypted or len(check.pages) != count:
+                    raise ValueError('画像PDFの検証に失敗しました。')
         if archive:
             archive.close()
             archive = None
         if doc:
             doc.save(temporary)
-        if kind == 'text':
-            temporary.write_text('\n'.join(texts), encoding='utf-8')
+        if text_output:
+            text_output.close()
         if cancelled():
             raise InterruptedError('書き出しを中止しました。')
         temporary.replace(target)
     finally:
+        if text_output:
+            text_output.close()
         if archive:
             archive.close()
         temporary.unlink(missing_ok=True)

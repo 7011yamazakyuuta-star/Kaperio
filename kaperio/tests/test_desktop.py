@@ -11,11 +11,11 @@ class DesktopTests(unittest.TestCase):
     def test_private_data_paths(self):
         with patch.object(runtime.sys, 'frozen', True, create=True):
             with patch.object(runtime.sys, 'platform', 'win32'), patch.dict(runtime.os.environ, {'LOCALAPPDATA': 'local-data'}):
-                self.assertEqual(runtime.data_directory(), Path('local-data/Kaperio'))
+                self.assertEqual(runtime.data_directory(), Path('local-data/Loxmit'))
             with patch.object(runtime.sys, 'platform', 'linux'), patch.dict(runtime.os.environ, {'XDG_DATA_HOME': 'xdg-data'}):
-                self.assertEqual(runtime.data_directory(), Path('xdg-data/kaperio'))
+                self.assertEqual(runtime.data_directory(), Path('xdg-data/loxmit'))
             with patch.object(runtime.sys, 'platform', 'darwin'):
-                self.assertEqual(runtime.data_directory(), Path.home() / 'Library/Application Support/Kaperio')
+                self.assertEqual(runtime.data_directory(), Path.home() / 'Library/Application Support/Loxmit')
 
     def test_kernel_bounds_and_utf8(self):
         for word, expected in [('a' * 16, True), ('a' * 17, False), ('日' * 5, True), ('日' * 6, False)]:
@@ -78,7 +78,7 @@ class DesktopTests(unittest.TestCase):
             try:
                 jid = library.import_pdf(source.name, source.read_bytes())
                 with patch.object(library.recovery_pool, 'submit') as submit:
-                    for strategy in ('dictionary_rules', 'hybrid_prefix', 'hybrid_suffix', 'guided'):
+                    for strategy in ('dictionary_rules', 'hybrid_prefix', 'hybrid_suffix', 'guided', 'automatic'):
                         library.start_recovery(jid, {'strategy': strategy, 'words': 'private-word'})
                         original_words = list(submit.call_args.args[3]['words'])
                         self.assertNotIn('words', library.jobs[jid]['plan'])

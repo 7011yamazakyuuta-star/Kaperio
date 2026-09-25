@@ -106,7 +106,7 @@ def office_hash(source):
 
 
 def discover_zip2john(configured=None):
-    candidates = [configured, os.environ.get('KAPERIO_ZIP2JOHN'), shutil.which('zip2john'),
+    candidates = [configured, os.environ.get('LOXMIT_ZIP2JOHN'), os.environ.get('KAPERIO_ZIP2JOHN'), shutil.which('zip2john'),
                   ROOT / 'vendor' / 'john' / 'zip2john.exe']
     return next((Path(p).resolve() for p in candidates if p and Path(p).is_file()
                  and (os.name == 'nt' or Path(p).suffix != '.exe')), None)
@@ -177,7 +177,8 @@ def inspect_file(source, extension, zip2john=None):
 
 def get_hash(source, info, hashcat, zip2john=None):
     if info['format'] == 'pdf':
-        return extract_hash(PdfReader(source))
+        with source.open('rb') as stream:
+            return extract_hash(PdfReader(stream))
     if info['format'] == 'office':
         return office_hash(source)
     value, mode = zip_hash(source, zip2john)

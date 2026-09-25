@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from runtime import VERSION
+from runtime import APP_NAME, VERSION
 
 RUNTIME = ['cffi', 'charset-normalizer', 'cryptography', 'lxml', 'msoffcrypto-tool',
            'olefile', 'pillow', 'pycparser', 'pycryptodomex', 'pypdf', 'pypdfium2',
@@ -51,12 +51,12 @@ def main():
     args = parser.parse_args()
     output = ROOT / 'dist'
     build = ROOT / 'build'
-    bundle = output / ('Kaperio.app' if sys.platform == 'darwin' else 'Kaperio')
+    bundle = output / (APP_NAME + '.app' if sys.platform == 'darwin' else APP_NAME)
     if not args.package_only:
         licenses = build / 'runtime-licenses'
         collect_licenses(licenses)
         command = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean', '--onedir',
-                   '--name', 'Kaperio', '--distpath', str(output), '--workpath', str(build / 'pyinstaller'),
+                   '--name', APP_NAME, '--distpath', str(output), '--workpath', str(build / 'pyinstaller'),
                    '--specpath', str(build), '--paths', str(ROOT), '--noupx',
                    '--collect-data', 'docx', '--collect-all', 'pypdfium2', '--collect-all', 'pypdfium2_raw',
                    '--collect-submodules', 'Cryptodome', '--hidden-import', 'olefile']
@@ -65,15 +65,21 @@ def main():
                                ('LICENSE', '.'), ('THIRD_PARTY.md', '.')]:
             command += ['--add-data', str(ROOT / source) + ':' + target]
         command += ['--add-data', str(licenses) + ':licenses/runtime']
+        if sys.platform in ('darwin', 'linux'):
+            from environment_setup import native_pack
+            if native_pack() is None:
+                raise RuntimeError('Build the pinned native engine pack before packaging this platform')
+            command += ['--add-data', str(ROOT / 'component_pack') + ':component_pack']
         if sys.platform in ('win32', 'darwin'):
-            command += ['--windowed', '--icon', str(ROOT / 'static/icon-512.png')]
+            icon = 'favicon.ico' if sys.platform == 'win32' else 'icon.icns'
+            command += ['--windowed', '--icon', str(ROOT / 'static' / icon)]
         if sys.platform == 'darwin':
-            command += ['--osx-bundle-identifier', 'org.kaperio.desktop']
+            command += ['--osx-bundle-identifier', 'org.loxmit.desktop']
         command += [str(ROOT / 'desktop.py')]
         subprocess.run(command, cwd=ROOT, check=True)
     if not bundle.is_dir():
         raise RuntimeError('Build output not found')
-    package_name = 'Kaperio-' + VERSION + '-' + platform.system().lower() + '-' + platform.machine().lower()
+    package_name = APP_NAME + '-' + VERSION + '-' + platform.system().lower() + '-' + platform.machine().lower()
     releases = output / 'releases'
     releases.mkdir(exist_ok=True)
     target = releases / package_name
@@ -82,7 +88,7 @@ def main():
         subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(bundle), str(archive)], check=True)
     else:
         archive = Path(shutil.make_archive(str(target), 'zip' if sys.platform == 'win32' else 'gztar',
-                                          root_dir=output, base_dir='Kaperio'))
+                                          root_dir=output, base_dir=APP_NAME))
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     archive.with_name(archive.name + '.sha256').write_text(digest + '  ' + archive.name + '\n', encoding='ascii')
     print(json.dumps({'archive': str(archive), 'sha256': digest, 'system': platform.platform(),

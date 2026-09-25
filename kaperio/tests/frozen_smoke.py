@@ -22,6 +22,7 @@ from pypdf import PdfReader
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from test_core import make_pdf
+from runtime import VERSION
 
 
 def main():
@@ -29,10 +30,11 @@ def main():
     parser.add_argument('executable', type=Path)
     parser.add_argument('--hashcat', type=Path)
     parser.add_argument('--zip2john', type=Path)
+    parser.add_argument('--native-setup', action='store_true')
     args = parser.parse_args()
     executable = args.executable.resolve()
     with tempfile.TemporaryDirectory(prefix='kaperio-smoke-') as temporary:
-        root = Path(temporary)
+        root = Path(temporary).resolve()
         crypto_report = root / 'crypto.json'
         crypto_check = subprocess.run([str(executable), '--self-check', str(crypto_report)],
                                       cwd=root, timeout=60, capture_output=True)
@@ -41,7 +43,7 @@ def main():
         assert crypto_check.returncode == 0 and crypto_result['ok'], crypto_result
         data = root / 'library'
         command = [str(executable), '--port', '0', '--data', str(data), '--no-browser']
-        environment = dict(os.environ, KAPERIO_HASHCAT='', KAPERIO_ZIP2JOHN='')
+        environment = dict(os.environ, LOXMIT_HASHCAT='', LOXMIT_ZIP2JOHN='', KAPERIO_HASHCAT='', KAPERIO_ZIP2JOHN='')
         process = subprocess.Popen(command, cwd=root, env=environment, stdout=subprocess.DEVNULL,
                                    stderr=subprocess.DEVNULL)
         launch = None
@@ -62,9 +64,9 @@ def main():
 
             def request(path, body=None, name=None, authenticated=True):
                 client = http.client.HTTPConnection(url.hostname, url.port, timeout=30)
-                headers = {'X-Kaperio': '1'}
+                headers = {'X-Loxmit': '1'}
                 if authenticated:
-                    headers['Cookie'] = 'kaperio_session=' + token
+                    headers['Cookie'] = 'loxmit_session=' + token
                 if name:
                     headers['X-Filename'] = quote(name)
                 if isinstance(body, dict):
@@ -87,20 +89,69 @@ def main():
             def wait_export(jid):
                 for _ in range(300):
                     value = job(jid)
-                    if value['state'] not in ('converting', 'queued', 'recovering'):
+                    if value['state'] not in ('converting', 'queued', 'recovering', 'unlocking'):
                         assert value['state'] == 'ready', value['message']
                         return value
                     time.sleep(.1)
                 raise TimeoutError('Export did not complete')
 
             assert request('/api/jobs', authenticated=False)[0] == 403
-            assert b'Kaperio' in request('/')[1]
+            assert b'Loxmit' in request('/')[1]
+            setup = api('/api/setup')
+            assert not setup['guide_seen'] and setup['operation']['phase'] == 'idle'
+            assert {c['id'] for c in setup['components']} == {'hashcat', 'nvrtc'}
+            assert not (data / 'tools').exists()
+            checks.append('setup-catalog-no-install')
+            assert request('/api/setup/install', {'component': 'hashcat', 'consent': False, 'catalog_revision': setup['catalog_revision']})[0] == 400
+            assert request('/api/setup', authenticated=False)[0] == 403
+            assert request('/setup.js')[0] == 200
+            checks.append('setup-consent-auth')
+            api('/api/setup/dismiss', {})
+            assert api('/api/setup')['guide_seen']
+            checks.append('setup-guide-state')
+            if args.native_setup:
+                component = next(c for c in setup['components'] if c['id'] == 'hashcat')
+                assert component['delivery'] == 'bundled' and component['eligible'], component
+                api('/api/setup/install', {'component': 'hashcat', 'consent': True,
+                                          'catalog_revision': setup['catalog_revision']})
+                for _ in range(600):
+                    result = api('/api/setup')
+                    if result['operation']['phase'] in ('complete', 'error', 'cancelled'):
+                        break
+                    time.sleep(.1)
+                assert result['operation']['phase'] == 'complete', result['operation']
+                engine = Path(api('/api/settings')['hashcat'])
+                assert engine.is_relative_to(data / 'tools') and os.access(engine, os.X_OK)
+                assert subprocess.check_output([str(engine), '--version'], cwd=engine.parent).strip() == b'v7.1.2'
+                for mode in ('10400', '10500', '10600', '10700', '9500', '9600', '13600', '17200'):
+                    subprocess.run([str(engine), '--hash-info', '-m', mode], cwd=engine.parent,
+                                   check=True, timeout=30, stdout=subprocess.DEVNULL)
+                checks += ['native-consent-install', 'native-executable-version', 'native-eight-format-modules']
+            for asset in ('icon-64.png', 'icon-192.png', 'icon-512.png', 'favicon.ico'):
+                status, content = request('/' + asset)
+                assert status == 200 and len(content) > 100, asset
             notices = request('/api/licenses')
             assert notices[0] == 200 and b'Python' in notices[1] and b'pdfium' in notices[1], (notices[0], notices[1][:500])
-            assert api('/api/settings')['version'] == '0.3.0-alpha.1'
+            assert api('/api/settings')['version'] == VERSION
+            assert api('/api/jobs')['jobs'] == []
+            before = api('/api/settings')
+            detected = api('/api/settings/detect', {})
+            assert set(detected) == {'hashcat', 'zip2john'}
+            assert api('/api/settings')['hashcat'] == before['hashcat']
+            assert api('/api/jobs')['jobs'] == []
+            checks += ['empty-first-run', 'read-only-engine-detection']
             estimate = api('/api/recovery/estimate', {'strategy': 'guided', 'words': 'test', 'numbers': '2024'})
             assert int(estimate['candidates']) > 1 and len(estimate['groups']) == 3
             checks.append('guided-estimate')
+            automatic = api('/api/recovery/estimate', {'strategy': 'automatic'})
+            assert 0 < int(automatic['candidates']) <= 10000000
+            assert automatic['notes'] and len(automatic['groups']) == 4
+            long_hint = 'PrivateLongPhrase' + 'x' * 80
+            automatic = api('/api/recovery/estimate', {'strategy': 'automatic', 'words': long_hint,
+                                                      'length': 'range', 'min': len(long_hint), 'max': len(long_hint)})
+            assert int(automatic['candidates']) > 0
+            assert long_hint not in json.dumps(automatic)
+            checks += ['automatic-unknown-answers', 'automatic-long-private-hint']
             if args.hashcat:
                 api('/api/settings', {'hashcat': str(args.hashcat.resolve()),
                                      'zip2john': str(args.zip2john.resolve()) if args.zip2john else ''})

@@ -6,7 +6,7 @@ This is a development validation record, not a certification or independent audi
 ## Desktop 0.2
 
 - Windows EXE, macOS arm64/Intel app bundles and Linux x86-64 native builds passed
-  unit/HTTP and frozen-executable tests in [run 36083350402](https://github.com/7011yamazakyuuta-star/Kaperio/actions/runs/36083350402).
+  unit/HTTP and frozen-executable tests in [run 36083350402](https://github.com/7011yamazakyuuta-star/Loxmit/actions/runs/36083350402).
   That run validated commit 1871814 before the additional recovery-method changes;
   the PR's latest check must also pass before publishing the final desktop assets.
 - Intel macOS required a statically linked cryptography build to avoid the frozen
