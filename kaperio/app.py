@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
+import errno
 import json
 import mimetypes
 import os
@@ -11,6 +13,7 @@ import shutil
 import ssl
 import ipaddress
 import subprocess
+import tempfile
 import threading
 import time
 import uuid
@@ -30,7 +33,11 @@ from runtime import APP_DIR, APP_NAME, VERSION, data_directory
 
 DEFAULT_DATA = data_directory()
 BUSY = {'queued', 'recovering', 'pausing', 'converting', 'unlocking'}
-MAX_UPLOAD = 100 * 1024 * 1024
+MAX_UPLOAD_MB = 200
+MAX_UPLOAD = MAX_UPLOAD_MB * 1024 * 1024
+TRANSFER_CHUNK = 1024 * 1024
+UPLOAD_TIMEOUT = 30
+DISK_RESERVE = 64 * 1024 * 1024
 RUNNING = {'recovering', 'converting', 'unlocking', 'pausing'}
 EVENT_LABELS = {
     'queued': '探索を待機しています。', 'recovering': '探索を開始しました。',
@@ -52,6 +59,10 @@ class SettingsError(ValueError):
     def __init__(self, message, field):
         super().__init__(message)
         self.field = field
+
+
+class ImportBusyError(ValueError):
+    pass
 
 
 def tool_path(value, field):
@@ -103,6 +114,7 @@ class Library:
         self.root = Path(root).resolve()
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.lock = threading.RLock()
+        self.import_lock = threading.Lock()
         self.jobs = {}
         self.stops = {}
         self.passwords = {}
@@ -231,36 +243,72 @@ class Library:
             return json.loads(json.dumps(result))
 
     def import_pdf(self, name, content):
+        # Compatibility for small in-process callers; HTTP always uses the stream API.
+        return self.import_stream(name, io.BytesIO(content), len(content))
+
+    def import_stream(self, name, stream, length):
         extension = Path(name).suffix.lower()
         if extension not in SUPPORTED:
             raise ValueError('対応形式はPDF、Excel、PowerPoint、Word、ZIPです。')
-        digest = hashlib.sha256(content).hexdigest()
-        with self.lock:
-            for job in self.jobs.values():
-                if job['sha256'] == digest:
-                    return job['id']
-            job_id = uuid.uuid4().hex
-            folder = self.root / job_id
-            folder.mkdir()
-            source = folder / ('source' + extension)
-            source.write_bytes(content)
-            try:
-                info = inspect_file(source, extension, self.zip2john)
-            except Exception as exc:
-                source.unlink(missing_ok=True)
-                folder.rmdir()
-                raise ValueError('ファイルを読み取れませんでした: ' + str(exc))
-            job = {'id': job_id, 'name': filename(name), 'sha256': digest, 'size': len(content),
-                   'created': time.time(), 'state': 'locked', 'info': info, 'outputs': [],
-                   'warnings': [], 'message': '', 'metrics': {}, 'unlocked': None,
-                   'source': source.name, 'updated': time.time(), 'elapsed': 0,
-                   'events': [{'time': time.time(), 'text': 'ファイルを追加しました。'}]}
-            self.jobs[job_id] = job
-            self.stops[job_id] = threading.Event()
-            if info['empty_password']:
-                self._unlock(job_id, '')
-            self.save(job)
-            return job_id
+        if not 0 < length <= MAX_UPLOAD:
+            raise ValueError(f'ファイルは{MAX_UPLOAD_MB}MB以内にしてください。')
+        if not self.import_lock.acquire(blocking=False):
+            raise ImportBusyError('別のファイルを取り込み中です。完了後に追加してください。')
+        try:
+            if shutil.disk_usage(self.root).free < length + DISK_RESERVE:
+                raise OSError(errno.ENOSPC, '保存先の空き容量が不足しています。')
+            with tempfile.TemporaryDirectory(prefix='.upload-', dir=self.root) as temporary:
+                source = Path(temporary) / ('source' + extension)
+                digest = hashlib.sha256()
+                remaining = length
+                with source.open('wb') as output:
+                    while remaining:
+                        chunk = stream.read(min(TRANSFER_CHUNK, remaining))
+                        if not chunk:
+                            raise ValueError('転送が中断されました。ファイルを追加し直してください。')
+                        if len(chunk) > remaining:
+                            raise ValueError('転送サイズが不正です。')
+                        output.write(chunk)
+                        digest.update(chunk)
+                        remaining -= len(chunk)
+                digest = digest.hexdigest()
+                with self.lock:
+                    for job in self.jobs.values():
+                        if job['sha256'] == digest:
+                            return job['id']
+                try:
+                    info = inspect_file(source, extension, self.zip2john)
+                except Exception as exc:
+                    raise ValueError('ファイルを読み取れませんでした: ' + str(exc)) from exc
+                job_id = uuid.uuid4().hex
+                folder = self.root / job_id
+                job = {'id': job_id, 'name': filename(name), 'sha256': digest, 'size': length,
+                       'created': time.time(), 'state': 'unlocking' if info['empty_password'] else 'locked',
+                       'info': info, 'outputs': [], 'warnings': [], 'message': '', 'metrics': {}, 'unlocked': None,
+                       'source': source.name, 'updated': time.time(), 'elapsed': 0,
+                       'events': [{'time': time.time(), 'text': 'ファイルを追加しました。'}]}
+                with self.lock:
+                    folder.mkdir(mode=0o700)
+                    try:
+                        source.replace(folder / source.name)
+                        self.jobs[job_id] = job
+                        self.stops[job_id] = threading.Event()
+                        self.save(job)
+                    except Exception:
+                        self.jobs.pop(job_id, None)
+                        self.stops.pop(job_id, None)
+                        for name in (source.name, 'job.tmp', 'job.json'):
+                            (folder / name).unlink(missing_ok=True)
+                        folder.rmdir()
+                        raise
+                if info['empty_password']:
+                    try:
+                        self._unlock(job_id, '')
+                    except Exception as exc:
+                        self.update(job_id, state='error', message='開封エラー: ' + str(exc))
+                return job_id
+        finally:
+            self.import_lock.release()
 
     def add_output(self, job_id, path, kind):
         job = self.jobs[job_id]
@@ -446,12 +494,10 @@ class Handler(BaseHTTPRequestHandler):
     def library(self):
         return self.server.library
 
-    def send_data(self, status, data, mime='application/json; charset=utf-8', extra=None):
-        if not isinstance(data, bytes):
-            data = json.dumps(data, ensure_ascii=False).encode('utf-8')
+    def send_headers(self, status, length, mime, extra=None):
         self.send_response(status)
         self.send_header('Content-Type', mime)
-        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Content-Length', str(length))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('X-Frame-Options', 'DENY')
@@ -460,7 +506,23 @@ class Handler(BaseHTTPRequestHandler):
         for key, value in (extra or {}).items():
             self.send_header(key, value)
         self.end_headers()
+
+    def send_data(self, status, data, mime='application/json; charset=utf-8', extra=None):
+        if not isinstance(data, bytes):
+            data = json.dumps(data, ensure_ascii=False).encode('utf-8')
+        self.send_headers(status, len(data), mime, extra)
         self.wfile.write(data)
+
+    def send_file(self, path, mime, extra=None):
+        with path.open('rb') as source:
+            self.send_headers(200, os.fstat(source.fileno()).st_size, mime, extra)
+            try:
+                self.connection.settimeout(UPLOAD_TIMEOUT)
+                while chunk := source.read(TRANSFER_CHUNK):
+                    self.wfile.write(chunk)
+            except OSError:
+                # Headers are already sent; a second JSON response would corrupt the file.
+                self.close_connection = True
 
     def authorized(self):
         if self.headers.get('Host') != self.server.authority:
@@ -525,7 +587,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('出力ファイルが見つかりません。')
                 target = folder / name
                 download_name = Path(job['name']).stem + '_' + name
-                self.send_data(200, target.read_bytes(), mimetypes.guess_type(name)[0] or 'application/octet-stream',
+                self.send_file(target, mimetypes.guess_type(name)[0] or 'application/octet-stream',
                                {'Content-Disposition': "attachment; filename*=UTF-8''" + quote(download_name)})
             else:
                 self.send_data(404, {'error': '見つかりません。'})
@@ -550,21 +612,32 @@ class Handler(BaseHTTPRequestHandler):
             self.send_data(403, {'error': 'Origin mismatch'})
             return
         try:
+            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length', [])) != 1:
+                raise ValueError('Content-Lengthを指定した転送のみ対応しています。')
             length = int(self.headers.get('Content-Length', '0'))
             limit = MAX_UPLOAD if self.path == '/api/import' else 16 * 1024 * 1024
             if length < 1 or length > limit:
-                self.send_data(413, {'error': 'ファイルは100MB以内にしてください。'})
+                message = f'ファイルは{MAX_UPLOAD_MB}MB以内にしてください。' if self.path == '/api/import' else 'リクエストは16MB以内にしてください。'
+                self.send_data(413, {'error': message})
                 return
-            body = self.rfile.read(length)
             if self.path == '/api/import':
-                job_id = self.library.import_pdf(unquote(self.headers.get('X-Filename', 'document.pdf')), body)
+                self.connection.settimeout(UPLOAD_TIMEOUT)
+                job_id = self.library.import_stream(unquote(self.headers.get('X-Filename', 'document.pdf')), self.rfile, length)
                 self.send_data(200, {'id': job_id})
                 return
+            body = self.rfile.read(length)
             data = json.loads(body)
             if not isinstance(data, dict):
                 raise ValueError('リクエストが不正です。')
             self.post_route(data)
-        except (ValueError, KeyError, TypeError, OSError) as exc:
+        except ImportBusyError as exc:
+            self.send_data(409, {'error': str(exc)})
+        except TimeoutError:
+            self.send_data(408, {'error': '転送がタイムアウトしました。ファイルを追加し直してください。'})
+        except OSError as exc:
+            status = 507 if exc.errno == errno.ENOSPC else 400
+            self.send_data(status, {'error': '保存先の空き容量が不足しています。' if status == 507 else str(exc)})
+        except (ValueError, KeyError, TypeError) as exc:
             self.send_data(400, {'error': str(exc), 'field': getattr(exc, 'field', None)})
         except Exception as exc:
             self.send_data(500, {'error': '処理に失敗しました: ' + str(exc)})

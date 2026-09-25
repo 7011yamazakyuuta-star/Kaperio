@@ -1,0 +1,177 @@
+{
+  "system": "Windows-11-10.0.26200-SP0",
+  "physical_memory_bytes": 16782979072,
+  "sample_interval_ms": 20,
+  "executable_sha256": "093b0f89bda001cbff5ac4317e62db3587b6600f55034c1c7deca9c38641e814",
+  "cases": [
+    {
+      "file": "large.pdf",
+      "bytes": 201335581,
+      "sha256": "163bf2a0e142169ed8103487a6ff90e83ddde7ba2d2ab14ea4ff71aa40617e0b",
+      "app_version": "0.4.0-alpha.4",
+      "passed": true,
+      "stages": {
+        "startup": {
+          "peak_rss_bytes": 64622592,
+          "peak_private_bytes": 45441024
+        },
+        "import": {
+          "peak_rss_bytes": 66736128,
+          "peak_private_bytes": 47611904,
+          "seconds": 0.78
+        },
+        "unlock": {
+          "peak_rss_bytes": 267190272,
+          "peak_private_bytes": 247296000,
+          "seconds": 0.479
+        },
+        "download": {
+          "peak_rss_bytes": 268394496,
+          "peak_private_bytes": 248397824,
+          "seconds": 1.165
+        },
+        "verification": {
+          "peak_rss_bytes": 297492480,
+          "peak_private_bytes": 276901888
+        },
+        "export_image_pdf": {
+          "peak_rss_bytes": 321626112,
+          "peak_private_bytes": 303792128,
+          "seconds": 5.261
+        },
+        "export_word": {
+          "peak_rss_bytes": 322174976,
+          "peak_private_bytes": 302391296,
+          "seconds": 1.693
+        },
+        "export_text": {
+          "peak_rss_bytes": 473137152,
+          "peak_private_bytes": 453922816,
+          "seconds": 0.13
+        }
+      }
+    },
+    {
+      "file": "large.docx",
+      "bytes": 203349504,
+      "sha256": "9161d8d7c484ef655b4749f52971d7e3513aab64def3bf9c4f6ecea323ef4fe0",
+      "app_version": "0.4.0-alpha.4",
+      "passed": true,
+      "stages": {
+        "startup": {
+          "peak_rss_bytes": 64503808,
+          "peak_private_bytes": 45363200
+        },
+        "import": {
+          "peak_rss_bytes": 114098176,
+          "peak_private_bytes": 79749120,
+          "seconds": 2.443
+        },
+        "unlock": {
+          "peak_rss_bytes": 611020800,
+          "peak_private_bytes": 651939840,
+          "seconds": 2.851
+        },
+        "download": {
+          "peak_rss_bytes": 73859072,
+          "peak_private_bytes": 54013952,
+          "seconds": 0.69
+        }
+      }
+    },
+    {
+      "file": "large.xlsx",
+      "bytes": 203340800,
+      "sha256": "0d7e5cb94b1ff02db06dfd782b607829819816c892f882a97c92a4ce95c619fb",
+      "app_version": "0.4.0-alpha.4",
+      "passed": true,
+      "stages": {
+        "startup": {
+          "peak_rss_bytes": 64749568,
+          "peak_private_bytes": 45547520
+        },
+        "import": {
+          "peak_rss_bytes": 114647040,
+          "peak_private_bytes": 80461824,
+          "seconds": 2.549
+        },
+        "unlock": {
+          "peak_rss_bytes": 607989760,
+          "peak_private_bytes": 649789440,
+          "seconds": 2.867
+        },
+        "download": {
+          "peak_rss_bytes": 74489856,
+          "peak_private_bytes": 54771712,
+          "seconds": 0.852
+        }
+      }
+    },
+    {
+      "file": "large.pptx",
+      "bytes": 203354112,
+      "sha256": "da95d4e0c7e26de58a6acf6177417cd8f3b198eb99195de1cefdaa5be21056ac",
+      "app_version": "0.4.0-alpha.4",
+      "passed": true,
+      "stages": {
+        "startup": {
+          "peak_rss_bytes": 64626688,
+          "peak_private_bytes": 45506560
+        },
+        "import": {
+          "peak_rss_bytes": 113872896,
+          "peak_private_bytes": 79478784,
+          "seconds": 2.564
+        },
+        "unlock": {
+          "peak_rss_bytes": 561623040,
+          "peak_private_bytes": 648552448,
+          "seconds": 2.928
+        },
+        "download": {
+          "peak_rss_bytes": 74350592,
+          "peak_private_bytes": 54595584,
+          "seconds": 0.636
+        }
+      }
+    },
+    {
+      "file": "large.zip",
+      "bytes": 201645139,
+      "sha256": "6aea786f0fcf99c20a40f20399c3c9320de39182a6c19c20a9cd1c587c5b60ec",
+      "app_version": "0.4.0-alpha.4",
+      "passed": true,
+      "stages": {
+        "startup": {
+          "peak_rss_bytes": 64573440,
+          "peak_private_bytes": 45719552
+        },
+        "import": {
+          "peak_rss_bytes": 66707456,
+          "peak_private_bytes": 47841280,
+          "seconds": 0.452
+        },
+        "unlock": {
+          "peak_rss_bytes": 69300224,
+          "peak_private_bytes": 50429952,
+          "seconds": 5.283
+        },
+        "download": {
+          "peak_rss_bytes": 66883584,
+          "peak_private_bytes": 47800320,
+          "seconds": 0.573
+        },
+        "verification": {
+          "peak_rss_bytes": 65761280,
+          "peak_private_bytes": 46641152
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Synthetic image-heavy documents; not all real documents.",
+    "Known-password decryption, not GPU recovery.",
+    "RSS includes app descendants, excludes fixture generator, client and OS file cache.",
+    "Office-to-PDF conversion is not exercised. Sampled peaks can miss shorter spikes."
+  ]
+}

@@ -1,4 +1,4 @@
-# Loxmit Desktop 0.4.0-alpha.2
+# Loxmit Desktop 0.4.0-alpha.4
 
 Formerly Kaperio. The repository URL, internal source directory, legacy launchers,
 and Hashcat session identifiers are intentionally unchanged. This preserves links
@@ -32,6 +32,15 @@ For managed machines follow the administrator's policy. Signing requires the own
 certificates/account and is outside this alpha release.
 
 ## Local data
+
+Each imported file may be up to 200 MiB (209,715,200 bytes), shown as 200MB in
+the interface. This is a per-file limit, not a library total. Parsing and conversion
+can require more memory than the input file size.
+Uploads and downloads use 1 MiB chunks. One import runs at a time, without blocking
+the library status lock during transfer or inspection. Uploads require space for the
+input plus a 64 MiB reserve; conversion outputs can require substantially more.
+Interrupted or timed-out transfers remove their temporary staging directory.
+See `LARGE_FILES.md` for the measured workloads and remaining limits.
 
 - Windows: `%LOCALAPPDATA%/Loxmit`
 - macOS: `~/Library/Application Support/Loxmit`

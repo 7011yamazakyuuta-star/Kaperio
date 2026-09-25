@@ -177,7 +177,8 @@ def inspect_file(source, extension, zip2john=None):
 
 def get_hash(source, info, hashcat, zip2john=None):
     if info['format'] == 'pdf':
-        return extract_hash(PdfReader(source))
+        with source.open('rb') as stream:
+            return extract_hash(PdfReader(stream))
     if info['format'] == 'office':
         return office_hash(source)
     value, mode = zip_hash(source, zip2john)

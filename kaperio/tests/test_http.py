@@ -1,13 +1,15 @@
 import http.client
 import json
+import socket
 import tempfile
 import threading
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 from http.server import ThreadingHTTPServer
 from unittest.mock import patch
 
-from app import Handler, Library
+from app import Handler, Library, MAX_UPLOAD, MAX_UPLOAD_MB
 
 
 class HTTPTests(unittest.TestCase):
@@ -53,6 +55,77 @@ class HTTPTests(unittest.TestCase):
         headers={'Cookie':'kaperio_session=test-capability','X-Kaperio':'1','X-Filename':'test.pdf'}
         self.assertEqual(self.request('POST','/api/import',b'not a pdf',headers)[0],400)
         self.assertEqual(self.library.snapshot(),[])
+
+    def test_import_limit_accepts_old_limit_plus_one_and_exactly_200mb(self):
+        self.assertEqual(MAX_UPLOAD, 200 * 1024 * 1024)
+        headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1', 'X-Filename': 'limit.pdf'}
+        for size in (100 * 1024 * 1024 + 1, MAX_UPLOAD):
+            with self.subTest(size=size), tempfile.TemporaryFile() as source:
+                source.truncate(size)
+                source.seek(0)
+                def inspect(path, extension, _):
+                    self.assertEqual(extension, '.pdf')
+                    self.assertEqual(path.stat().st_size, size)
+                    return {'format': 'pdf', 'extension': '.pdf', 'empty_password': False}
+                # Only parsing is stubbed; HTTP transfer, disk staging and hashing are real.
+                with patch('app.inspect_file', side_effect=inspect) as inspector, patch.object(self.library, 'import_pdf', side_effect=AssertionError('HTTP must stream')):
+                    status, body = self.request('POST', '/api/import', source, dict(headers, **{'Content-Length': str(size)}))
+                    self.assertEqual(status, 200)
+                    job_id = json.loads(body)['id']
+                    self.assertEqual(self.library.jobs[job_id]['size'], size)
+                    inspector.assert_called_once()
+                    self.library.remove(job_id)
+        self.assertEqual(self.library.snapshot(), [])
+
+    def test_oversized_upload_rejected_before_reading_body(self):
+        headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1'}
+        for route, size, message in (('/api/import', MAX_UPLOAD + 1, '200MB'),
+                                     ('/api/settings', 16 * 1024 * 1024 + 1, '16MB')):
+            with self.subTest(route=route), patch.object(self.library, 'import_stream') as importer:
+                status, body = self.request('POST', route, headers=dict(headers, **{'Content-Length': str(size)}))
+                self.assertEqual(status, 413)
+                self.assertIn(message, json.loads(body)['error'])
+                importer.assert_not_called()
+
+    def test_interrupted_and_stalled_uploads_leave_no_partial_files(self):
+        for stalled in (False, True):
+            with self.subTest(stalled=stalled), patch('app.UPLOAD_TIMEOUT', .2):
+                client = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)
+                try:
+                    client.request('POST', '/api/import', b'cut', {
+                        'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1',
+                        'X-Filename': 'cut.pdf', 'Content-Length': '100'})
+                    if not stalled:
+                        client.sock.shutdown(socket.SHUT_WR)
+                    response = client.getresponse()
+                    self.assertEqual(response.status, 408 if stalled else 400)
+                    response.read()
+                finally:
+                    client.close()
+                self.assertEqual(self.library.snapshot(), [])
+                self.assertFalse(list(Path(self.tmp.name).glob('.upload-*')))
+                self.assertFalse(self.library.import_lock.locked())
+
+    def test_import_disk_space_busy_and_framing_guards(self):
+        headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1',
+                   'X-Filename': 'test.pdf', 'Content-Length': '100'}
+        with patch('app.shutil.disk_usage', return_value=SimpleNamespace(free=0)):
+            self.assertEqual(self.request('POST', '/api/import', headers=headers)[0], 507)
+        with self.library.import_lock:
+            self.assertEqual(self.request('POST', '/api/import', headers=headers)[0], 409)
+            self.assertEqual(self.request('GET', '/api/jobs', headers=headers)[0], 200)
+        invalid = dict(headers, **{'Transfer-Encoding': 'chunked'})
+        self.assertEqual(self.request('POST', '/api/import', headers=invalid)[0], 400)
+        self.assertFalse(list(Path(self.tmp.name).glob('.upload-*')))
+        self.assertEqual(self.library.snapshot(), [])
+
+    def test_upload_limit_matches_browser_and_label(self):
+        headers = {'Cookie': 'loxmit_session=test-capability'}
+        script = self.request('GET', '/app.js', headers=headers)[1].decode('utf-8')
+        page = self.request('GET', '/', headers=headers)[1].decode('utf-8')
+        self.assertIn(f'const MAX_UPLOAD_MB = {MAX_UPLOAD_MB};', script)
+        self.assertIn('file.size>MAX_UPLOAD_MB*1024*1024', script)
+        self.assertIn(f'最大{MAX_UPLOAD_MB}MB', page)
 
     def test_loxmit_brand_and_authentication(self):
         headers = {'Cookie': 'loxmit_session=test-capability', 'X-Loxmit': '1'}

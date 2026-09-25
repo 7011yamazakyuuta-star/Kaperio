@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0-alpha.2",
+  "version": "0.4.0-alpha.4",
   "files": [
     ".gitignore", "LICENSE", "README.md", "Setup.cmd", "Kaperio.cmd", "Loxmit.cmd",
     ".github/workflows/desktop.yml",
@@ -23,6 +23,8 @@
     "kaperio/tests/test_core.py", "kaperio/tests/test_converter.py", "kaperio/tests/test_http.py", "kaperio/tests/test_release.py",
     "kaperio/tests/test_desktop.py", "kaperio/tests/frozen_smoke.py", "kaperio/tests/test_planning.py", "kaperio/tests/planning_integration.py", "kaperio/tests/split_benchmark.py",
     "kaperio/tests/integration.py", "kaperio/tests/recovery-controls.py", "kaperio/tests/release-smoke.cjs",
-    "kaperio/tests/test_design.py", "kaperio/docs/design-qa.md"
+    "kaperio/tests/test_design.py", "kaperio/docs/design-qa.md",
+    "kaperio/tests/test_streaming.py", "kaperio/tests/large_documents.py", "kaperio/docs/LARGE_FILES.md",
+    "kaperio/docs/large-before-20260925.json", "kaperio/docs/large-after-20260925.json"
   ]
 }

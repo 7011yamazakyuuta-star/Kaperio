@@ -1,5 +1,6 @@
 /* Local-only UI. User filenames, hints, and server messages stay text nodes. */
 const $ = id => document.getElementById(id);
+const MAX_UPLOAD_MB = 200;
 const state = {jobs: [], selected: null, page: 0, tab: 'unlock', mode: 'known', preview: '', polling: false, connected: true, editing: false};
 const busy = new Set(['queued', 'recovering', 'pausing', 'converting', 'unlocking']);
 const labels = {locked:'未解除',ready:'完了',queued:'待機',recovering:'探索中',pausing:'停止中',paused:'一時停止',converting:'書き出し中',exhausted:'探索完了',error:'要確認',cancelled:'中止',unlocking:'照合中'};
@@ -230,7 +231,7 @@ function strategyChanged(){
 }
 async function importFiles(files){
   for(const file of files){try{
-    if(file.size>104857600)throw Error('100MBを超えるファイルです。');toast(file.name+' を読み込み中');
+    if(file.size>MAX_UPLOAD_MB*1024*1024)throw Error(`${MAX_UPLOAD_MB}MBを超えるファイルです。`);toast(file.name+' を読み込み中');
     const r=await fetch('/api/import',{method:'POST',headers:{'X-Loxmit':'1','X-Filename':encodeURIComponent(file.name),'Content-Type':'application/octet-stream'},body:file});
     const data=await r.json();if(!r.ok)throw Error(data.error);await refresh();selectJob(data.id);$('toast').hidden=true;
   }catch(e){toast(e.message)}}$('files').value='';
