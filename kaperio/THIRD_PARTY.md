@@ -24,9 +24,9 @@ The exact included file contents are identified by the release SHA-256 manifest.
 - [office2john source](https://github.com/openwall/john/blob/bleeding-jumbo/run/office2john.py)
 - [Lucide license](https://lucide.dev/license)
 
-## External programs, not redistributed in this ZIP
+## Engines and external programs
 
-- Hashcat: user-installed CLI, tested with 7.1.2. MIT for the main program;
+- Hashcat: separate CLI, tested with 7.1.2. MIT for the main program;
   upstream `docs/license_libs/` contains additional component notices.
   [Source and license](https://github.com/hashcat/hashcat/blob/v7.1.2/docs/license.txt)
 - John the Ripper / zip2john: optional user-installed CLI for ZIP recovery.
@@ -40,10 +40,17 @@ The exact included file contents are identified by the release SHA-256 manifest.
 - GPU drivers and SDKs: provided by hardware vendors, not bundled.
 
 Windows users can opt into downloading Hashcat 7.1.2 and optional NVIDIA NVRTC
-12.9.86 through the setup guide. These binaries are still not in the application
-bundle. Hashcat's upstream license notices are retained; NVRTC has NVIDIA's own
+12.9.86 through the setup guide. These downloaded Windows binaries are not in the
+application bundle. Hashcat's upstream license notices are retained; NVRTC has NVIDIA's own
 EULA, shown before consent and retained with the downloaded DLLs. The app's MIT
 license does not cover NVIDIA components. See [setup scope](docs/SETUP.md).
+
+macOS/Linux native bundles contain a consent-activated Hashcat pack compiled from
+the unmodified official 7.1.2 source commit
+`c75f446c44cd3f0742035a1394416c39bee5ea8f`. Its `docs/` and `deps/` sources/notices
+are retained, including component-specific terms. These are Loxmit builds, not
+upstream official binary releases. Native pack metadata identifies source and
+SHA-256. Source-only Loxmit ZIPs contain build instructions, not engine binaries.
 
 Invoking a separate CLI is not a blanket exemption from license obligations.
 Do not add these binaries to a release without reviewing their complete terms.
@@ -67,7 +74,8 @@ use Apache-2.0. Copyright 1998-2026 The OpenSSL Project Authors. The package cod
 unmodified. Development-only openpyxl/python-pptx are not application requirements.
 PyInstaller is build tooling, licensed GPL with a distribution exception; it does
 not change Loxmit's MIT license. No GPL John binary, external Office program,
-Hashcat binary, GPU driver, or SDK is included in either package type.
+GPU driver, or SDK is included in either package type. Hashcat is included only
+in the macOS/Linux desktop packages as described above.
 
 - [PyInstaller distribution exception](https://pyinstaller.org/en/stable/license.html)
 - [OpenSSL license source](https://github.com/openssl/openssl/blob/openssl-4.0.2/LICENSE.txt)

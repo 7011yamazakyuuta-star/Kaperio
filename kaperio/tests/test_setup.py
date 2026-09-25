@@ -12,7 +12,7 @@ from unittest.mock import patch
 from app import Library
 from environment_setup import (CATALOG, CATALOG_REVISION, NVRTC_DLLS, Cancelled,
                                PinnedRedirect, download_component, hardware_inventory,
-                               parse_backend, safe_member, unpack_nvrtc)
+                               native_pack, parse_backend, safe_member, unpack_native, unpack_nvrtc)
 from runtime import engine_environment
 
 
@@ -40,10 +40,11 @@ class SetupTests(unittest.TestCase):
         self.setup = self.library.setup
         self.win = patch('environment_setup.windows_x64', return_value=True)
         self.tar = patch('environment_setup.system_tar', return_value=Path('trusted-system-tar.exe'))
-        self.win.start(); self.tar.start()
+        self.pack = patch('environment_setup.native_pack', return_value=None)
+        self.win.start(); self.tar.start(); self.pack.start()
 
     def tearDown(self):
-        self.library.close(); self.win.stop(); self.tar.stop(); self.temp.cleanup()
+        self.library.close(); self.win.stop(); self.tar.stop(); self.pack.stop(); self.temp.cleanup()
 
     def consent(self, key='hashcat'):
         return {'component': key, 'consent': True, 'catalog_revision': CATALOG_REVISION}
@@ -204,6 +205,59 @@ class SetupTests(unittest.TestCase):
             env = engine_environment(self.library.root)
         self.assertTrue(env['PATH'].startswith(str(target / 'bin')))
         self.assertEqual(os.environ.get('PATH', ''), before)
+
+    def native_fixture(self, extra=None):
+        folder = self.root / 'component_pack'; folder.mkdir(exist_ok=True)
+        archive = folder / 'hashcat.zip'
+        with zipfile.ZipFile(archive, 'w') as pack:
+            for name in ('hashcat', 'docs/license.txt', 'modules/module_10400.so', 'OpenCL/inc_vendor.h'):
+                pack.writestr('hashcat-7.1.2/' + name, b'fixture, never executed')
+            if extra: pack.writestr(extra, b'unsafe')
+        manifest = {'schema': 1, 'version': '7.1.2', 'system': 'Linux', 'machine': 'x86_64',
+                    'source_commit': 'c75f446c44cd3f0742035a1394416c39bee5ea8f',
+                    'size': archive.stat().st_size, 'sha256': hashlib.sha256(archive.read_bytes()).hexdigest()}
+        (folder / 'manifest.json').write_text(json.dumps(manifest))
+        return {**CATALOG['hashcat'], 'archive': archive, 'delivery': 'bundled', 'executable': 'hashcat',
+                'size': manifest['size'], 'sha256': manifest['sha256']}
+
+    def test_native_manifest_platform_binding_and_minimum_macos(self):
+        self.native_fixture()
+        with patch('environment_setup.windows_x64', return_value=False), patch('environment_setup.APP_DIR', self.root), patch('environment_setup.platform.system', return_value='Linux'), patch('environment_setup.platform.machine', return_value='x86_64'):
+            self.assertEqual(native_pack()['delivery'], 'bundled')
+            with patch('environment_setup.platform.machine', return_value='aarch64'):
+                self.assertIsNone(native_pack())
+            with patch('environment_setup.platform.system', return_value='Darwin'), patch('environment_setup.platform.mac_ver', return_value=('14.0', (), '')):
+                self.assertIsNone(native_pack())
+
+    def test_native_install_never_downloads_or_installs_nvrtc(self):
+        item = self.native_fixture()
+        with patch('environment_setup.windows_x64', return_value=False), patch('environment_setup.native_pack', return_value=item), patch('environment_setup.download_component') as download, patch('environment_setup.run_readonly', return_value=(0, 'v7.1.2')):
+            snapshot = self.setup.snapshot()
+            self.assertTrue(snapshot['automatic_supported'])
+            self.assertFalse(snapshot['components'][1]['eligible'])
+            self.setup.start(self.consent()); self.finish()
+            self.assertEqual(self.setup.status['phase'], 'complete')
+            self.assertEqual(self.library.hashcat.name, 'hashcat')
+            self.assertTrue(self.setup.installed('hashcat'))
+            self.assertTrue((self.library.hashcat.parent / 'docs/license.txt').is_file())
+            download.assert_not_called()
+
+    def test_native_checksum_traversal_and_wrong_binary_fail_closed(self):
+        item = self.native_fixture()
+        stage = self.root / 'stage'; stage.mkdir()
+        with self.assertRaises(ValueError):
+            unpack_native(item | {'sha256': '0' * 64}, stage, threading.Event(), lambda *_: None)
+        self.assertEqual(list(stage.iterdir()), [])
+        item = self.native_fixture('hashcat-7.1.2/../../escape')
+        with self.assertRaises(ValueError):
+            unpack_native(item, stage, threading.Event(), lambda *_: None)
+        self.assertEqual(list(stage.iterdir()), [])
+        item = self.native_fixture()
+        with patch('environment_setup.native_pack', return_value=item), patch('environment_setup.run_readonly', return_value=(1, 'incompatible')):
+            self.setup.start(self.consent()); self.finish()
+            self.assertEqual(self.setup.status['phase'], 'error')
+            self.assertIsNone(self.library.hashcat)
+            self.assertFalse(list(self.setup.root.glob('.install-*')))
 
 
 if __name__ == '__main__':

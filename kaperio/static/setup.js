@@ -35,15 +35,15 @@
     for(const item of snapshot.components){
       const section=el('section','setup-component'),head=el('div','setup-component-heading');
       head.append(el('h4','',item.name),el('span','muted',item.version));section.append(head);
-      section.append(el('p','setup-note',item.id==='hashcat'?'パスワード探索エンジン / 公式配布一式': 'NVIDIA向け実行時コンパイラー / DLL 2個とライセンスのみ'));
+      section.append(el('p','setup-note',item.id==='hashcat'?(item.delivery==='bundled'?'パスワード探索エンジン / 公式ソースからの同梱ビルド':'パスワード探索エンジン / 公式配布一式'): 'NVIDIA向け実行時コンパイラー / DLL 2個とライセンスのみ'));
       if(item.id==='nvrtc')section.append(el('p','setup-note','CUDA実行用の任意部品です。OpenCLで利用できる場合は、追加せずに使うこともできます。'));
-      section.append(el('p','muted',`ダウンロード ${(item.size/1048576).toFixed(1)} MB`));
+      section.append(el('p','muted',`${item.delivery==='bundled'?'同梱済み・追加通信なし':'ダウンロード'} ${(item.size/1048576).toFixed(1)} MB`));
       const license=el('a','',item.license);license.href=item.license_url;license.target='_blank';license.rel='noopener noreferrer';section.append(license);
       if(item.reason)section.append(el('p','setup-note',item.reason));
       const enabled=item.eligible&&!snapshot.locked&&!pending&&!active();
       if(item.eligible){
         const label=el('label','setup-consent'),check=el('input');check.type='checkbox';check.id='consent-'+item.id;check.disabled=!enabled;
-        label.append(check,el('span','',item.id==='nvrtc'?'NVIDIAの利用規約を確認し、同意してこの部品を導入する':'利用条件とダウンロードを確認し、この部品の導入を許可する'));
+        label.append(check,el('span','',item.id==='nvrtc'?'NVIDIAの利用規約を確認し、同意してこの部品を導入する':'利用条件を確認し、この部品の導入を許可する'));
         section.append(label);
         const button=el('button','primary');button.type='button';button.id='install-'+item.id;button.disabled=true;button.append(icon('download'),el('span','',item.name+'を導入'));
         check.onchange=()=>button.disabled=!enabled||!check.checked;

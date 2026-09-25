@@ -1,30 +1,32 @@
-# Loxmit Desktop 0.4.0-alpha.7
+# Loxmit Desktop 0.4.0-alpha.8
 
-Formerly Kaperio. The repository URL, internal source directory, legacy launchers,
-and Hashcat session identifiers are intentionally unchanged. This preserves links
-and recovery checkpoints. See `design-qa.md` for the v0.4 validation boundary;
+Formerly Kaperio. The public repository is now `7011yamazakyuuta-star/Loxmit`.
+Internal source directories, legacy launchers and Hashcat session identifiers
+remain compatible to preserve existing data and checkpoints. See `design-qa.md` for the v0.4 validation boundary;
 earlier native-runner results do not automatically validate a new release.
 
 ## Downloads
 
-Native bundles are published on [GitHub Releases](https://github.com/7011yamazakyuuta-star/Kaperio/releases).
+Native bundles are published on [GitHub Releases](https://github.com/7011yamazakyuuta-star/Loxmit/releases).
 An operating-system build is only published after its frozen executable smoke test passes.
 The source ZIP is independent of the native bundles. No app store is required.
 
 | Platform | Package | Launch | Status boundary |
 |---|---|---|---|
 | Windows x86-64 | ZIP | `Loxmit.exe` | Local Windows testing; GPU tested separately |
-| macOS Apple Silicon | ZIP containing `.app` | `Loxmit.app` | Requires native hosted build/smoke, not physical GPU validation |
-| macOS Intel | ZIP containing `.app` | `Loxmit.app` | Requires native hosted build/smoke, not physical GPU validation |
+| macOS 15+ Apple Silicon | ZIP containing `.app` | `Loxmit.app` | Native hosted build/smoke, not physical GPU validation |
+| macOS 15+ Intel | ZIP containing `.app` | `Loxmit.app` | Native hosted build/smoke, not physical GPU validation |
 | Linux x86-64 | tar.gz | `Loxmit/Loxmit` | Requires Ubuntu 22.04 build; glibc >= 2.35, not every distro |
 
 These are portable application bundles, not a single standalone executable and not installers.
 Keep all files together. The app starts a local HTTP service and opens the default browser.
-Python and application libraries are included; the browser, GPU driver, Hashcat, zip2john,
+Python and application libraries are included; the browser, GPU driver, zip2john,
 and Office/LibreOffice are not included. Known-password decryption does not require Hashcat.
 Windows x86-64 can optionally download Hashcat and, when diagnosed as missing,
 NVIDIA NVRTC through the consent-based [setup guide](SETUP.md). Drivers are never
-installed or changed. Other operating systems retain manual engine setup.
+installed or changed. macOS/Linux native bundles include a pinned-source native
+Hashcat pack, activated only after consent without extra downloads or development
+tools. This is not an upstream official macOS binary package. See `SETUP.md`.
 PDF raster export and image-based Word export work without Office. Office-to-PDF needs
 an installed Microsoft Office (Windows) or LibreOffice (all supported desktop systems).
 

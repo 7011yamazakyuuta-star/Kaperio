@@ -30,6 +30,7 @@ def main():
     parser.add_argument('executable', type=Path)
     parser.add_argument('--hashcat', type=Path)
     parser.add_argument('--zip2john', type=Path)
+    parser.add_argument('--native-setup', action='store_true')
     args = parser.parse_args()
     executable = args.executable.resolve()
     with tempfile.TemporaryDirectory(prefix='kaperio-smoke-') as temporary:
@@ -108,6 +109,24 @@ def main():
             api('/api/setup/dismiss', {})
             assert api('/api/setup')['guide_seen']
             checks.append('setup-guide-state')
+            if args.native_setup:
+                component = next(c for c in setup['components'] if c['id'] == 'hashcat')
+                assert component['delivery'] == 'bundled' and component['eligible'], component
+                api('/api/setup/install', {'component': 'hashcat', 'consent': True,
+                                          'catalog_revision': setup['catalog_revision']})
+                for _ in range(600):
+                    result = api('/api/setup')
+                    if result['operation']['phase'] in ('complete', 'error', 'cancelled'):
+                        break
+                    time.sleep(.1)
+                assert result['operation']['phase'] == 'complete', result['operation']
+                engine = Path(api('/api/settings')['hashcat'])
+                assert engine.is_relative_to(data / 'tools') and os.access(engine, os.X_OK)
+                assert subprocess.check_output([str(engine), '--version'], cwd=engine.parent).strip() == b'v7.1.2'
+                for mode in ('10400', '10500', '10600', '10700', '9500', '9600', '13600', '17200'):
+                    subprocess.run([str(engine), '--hash-info', '-m', mode], cwd=engine.parent,
+                                   check=True, timeout=30, stdout=subprocess.DEVNULL)
+                checks += ['native-consent-install', 'native-executable-version', 'native-eight-format-modules']
             for asset in ('icon-64.png', 'icon-192.png', 'icon-512.png', 'favicon.ico'):
                 status, content = request('/' + asset)
                 assert status == 200 and len(content) > 100, asset

@@ -1,21 +1,26 @@
 # Optional setup and GPU diagnostics
 
-Loxmit 0.4.0-alpha.7 adds a dismissible first-run tutorial, GPU diagnostics and
+Loxmit 0.4.0-alpha.8 includes a dismissible first-run tutorial, GPU diagnostics and
 explicitly consented component downloads. Closing the tutorial never blocks
 known-password opening or export. Reopen it using the help icon or Settings.
 No demo document is added. The tutorial-seen flag is local to the library.
 
 ## Scope
 
-- Automatic component installation: Windows x86-64 only, using Windows' existing
+- Windows x86-64 automatic downloads use Windows' existing
   system `tar.exe` for the pinned official Hashcat 7z archive. No extra extractor,
   package manager, administrator elevation or installer executable is downloaded.
-- macOS/Linux: tutorial and inventory/backend diagnostics are available; automatic
-  downloads are disabled. Existing Hashcat installations can still be configured.
+- macOS 15+ arm64/x86-64 and Linux x86-64 native bundles include a compressed
+  Hashcat pack built from upstream 7.1.2 commit
+  `c75f446c44cd3f0742035a1394416c39bee5ea8f` on the matching CI runner.
+  Consent activates it into the private library; no extra download, Homebrew,
+  compiler, system package manager or elevation is needed. Linux is built on
+  Ubuntu 22.04 (glibc 2.35). Other architectures/distributions are not validated.
+  Windows and source ZIPs do not contain this native pack.
 - Drivers, CUDA Toolkit as a whole, Visual Studio, John, Office and LibreOffice
   are never installed or updated. System PATH, registry and GPU settings are not
   modified. Already-configured Hashcat is retained, not upgraded automatically.
-- Hashcat comes from the upstream binary archive, with its kernels, modules,
+- Windows Hashcat comes from the upstream binary archive, with its kernels, modules,
   configuration and complete license notices. Official stable version checked
   on 2026-09-25: 7.1.2, https://hashcat.net/hashcat/.
 - Optional NVIDIA component: NVRTC 12.9.86 from NVIDIA's Windows wheel on PyPI,
@@ -60,8 +65,17 @@ Versioned files are activated only after validation. A settings-save failure can
 leave a valid inactive component, which is reused on retry without downloading.
 Receipts record the source, digest, license URL, catalog revision and consent time.
 
-The application bundle contains the downloader and pinned metadata, not the
-optional component binaries. Vendor downloads disclose normal request metadata
+Native macOS/Linux packs include kernels, modules, rules, charsets, configuration,
+documentation and dependency sources/notices. The build manifest records the
+upstream commit, platform, architecture, exact size and SHA-256. A platform/version
+mismatch disables activation; checksum, archive paths/types, expanded size and
+executable version are checked before configuration. Existing files are preserved.
+The pack runs under the same trust boundary as the application, not as a signed
+independent updater. This is not upstream's official macOS binary distribution.
+
+NVRTC downloads remain Windows x86-64 only; macOS does not need this CUDA component.
+Linux GPU runtime setup remains the user's responsibility. No driver is changed.
+Vendor downloads disclose normal request metadata
 (such as IP address) to the publisher, never document/password content.
 
 ## Verification
@@ -78,3 +92,9 @@ network test in a fresh test-only library. It downloads the official pinned
 Hashcat archive, verifies it, extracts it, registers it and queries its version
 and devices. It does not install NVRTC or run a password search. A successful
 run is not a CUDA execution/performance result or native macOS/Linux evidence.
+
+`scripts/build_engine_pack.py` builds the pinned source and checks eight format
+modules with `--hash-info`. Native CI runs `tests/frozen_smoke.py --native-setup`
+against the packaged app, consents, verifies private activation/executable mode,
+queries the engine version and loads those modules again after extraction.
+These checks do not establish physical-GPU recovery or performance results.

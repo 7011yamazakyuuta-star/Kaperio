@@ -16,10 +16,10 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from runtime import engine_environment
+from runtime import APP_DIR, engine_environment
 
 CREATE_FLAGS = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-CATALOG_REVISION = '2026-09-25.1'
+CATALOG_REVISION = '2026-09-25.2'
 CATALOG = {
     'hashcat': {
         'name': 'Hashcat', 'version': '7.1.2', 'size': 19682772,
@@ -48,6 +48,76 @@ class Cancelled(Exception):
 
 def windows_x64():
     return platform.system() == 'Windows' and platform.machine().lower() in ('amd64', 'x86_64')
+
+
+def native_pack():
+    """Only trust build resources, never a manifest from a user-selected directory."""
+    if windows_x64():
+        return None
+    try:
+        folder = APP_DIR / 'component_pack'
+        data = json.loads((folder / 'manifest.json').read_text(encoding='utf-8'))
+        system, machine = platform.system(), platform.machine().lower()
+        if (system, machine) not in {('Darwin', 'arm64'), ('Darwin', 'x86_64'), ('Linux', 'x86_64')}:
+            return None
+        if system == 'Darwin' and int(platform.mac_ver()[0].split('.')[0]) < 15:
+            return None
+        if (data['schema'] != 1 or data['version'] != '7.1.2'
+                or data['system'] != system or data['machine'] != machine
+                or data['source_commit'] != 'c75f446c44cd3f0742035a1394416c39bee5ea8f'
+                or not re.fullmatch('[0-9a-f]{64}', data['sha256'])
+                or not 0 < data['size'] <= 256 * 1024 * 1024
+                or (folder / 'hashcat.zip').stat().st_size != data['size']):
+            return None
+        return {**CATALOG['hashcat'], 'size': data['size'], 'sha256': data['sha256'],
+                'url': 'https://github.com/hashcat/hashcat/tree/' + data['source_commit'],
+                'archive': folder / 'hashcat.zip', 'delivery': 'bundled', 'executable': 'hashcat'}
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def unpack_native(item, stage, stop, progress):
+    archive = item['archive']
+    digest, received = hashlib.sha256(), 0
+    with archive.open('rb') as stream:
+        while chunk := stream.read(1024 * 1024):
+            if stop.is_set():
+                raise Cancelled()
+            digest.update(chunk)
+            received += len(chunk)
+            progress(received, item['size'])
+    if received != item['size'] or digest.hexdigest() != item['sha256']:
+        raise ValueError('同梱HashcatのSHA-256検証に失敗しました。')
+    total, names = 0, set()
+    with zipfile.ZipFile(archive) as source:
+        for member in source.infolist():
+            mode = member.external_attr >> 16
+            if (not safe_member(member.filename, item['folder']) or member.filename in names
+                    or stat.S_IFMT(mode) not in (0, stat.S_IFREG, stat.S_IFDIR)):
+                raise ValueError('同梱Hashcatの構成が不正です。')
+            names.add(member.filename)
+            total += member.file_size
+            if total > 512 * 1024 * 1024:
+                raise ValueError('展開サイズが上限を超えました。')
+        for member in source.infolist():
+            if stop.is_set():
+                raise Cancelled()
+            path = stage.joinpath(*PurePosixPath(member.filename).parts)
+            if member.is_dir():
+                path.mkdir(parents=True, exist_ok=True)
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with source.open(member) as stream, path.open('xb') as output:
+                while chunk := stream.read(1024 * 1024):
+                    if stop.is_set():
+                        raise Cancelled()
+                    output.write(chunk)
+            path.chmod(0o700 if path.name == 'hashcat' else 0o600)
+    target = stage / item['folder']
+    for name in ('hashcat', 'docs/license.txt', 'modules/module_10400.so', 'OpenCL/inc_vendor.h'):
+        if not (target / name).is_file():
+            raise ValueError('必要なHashcatの部品がありません。')
+    return target
 
 
 def system_tar():
@@ -240,6 +310,9 @@ class SetupManager:
         self.diagnosed_engine = None
         self.status = {'phase': 'idle', 'message': '', 'received': 0, 'total': 0}
 
+    def item(self, key):
+        return (native_pack() if key == 'hashcat' else None) or CATALOG[key]
+
     @property
     def busy(self):
         return self.status['phase'] in ACTIVE or self.diagnosing
@@ -253,8 +326,9 @@ class SetupManager:
             target = self.receipt_path(key).parent
             if target.resolve().parent != self.root.resolve():
                 return False
-            expected = ['hashcat.exe'] if key == 'hashcat' else ['bin/' + n for n in NVRTC_DLLS]
-            return receipt['sha256'] == CATALOG[key]['sha256'] and all((target / n).is_file() for n in expected)
+            item = self.item(key)
+            expected = [item.get('executable', 'hashcat.exe')] if key == 'hashcat' else ['bin/' + n for n in NVRTC_DLLS]
+            return receipt['sha256'] == item['sha256'] and all((target / n).is_file() for n in expected)
         except (OSError, ValueError, KeyError):
             return False
 
@@ -265,19 +339,23 @@ class SetupManager:
             except (OSError, ValueError, KeyError):
                 seen = False
             configured = bool(self.library.hashcat and self.library.hashcat.is_file())
-            supported = windows_x64()
+            pack = native_pack()
+            supported = windows_x64() or pack is not None
             components = []
-            for key, item in CATALOG.items():
+            for key in CATALOG:
+                item = self.item(key)
                 installed = self.installed(key)
                 eligible = supported and not self.busy
                 reason = ''
                 if not supported:
-                    reason = '自動導入はWindows x64に対応しています。このOSでは既存のツールを設定してください。'
+                    reason = 'この環境に対応する同梱部品がありません。macOS 15以降・Linux x64の配布版、または既存のHashcatを使用してください。'
                 elif key == 'hashcat':
                     if configured:
                         eligible, reason = False, '設定済みのHashcatを使用します。追加ダウンロードは不要です。'
-                    elif not system_tar():
+                    elif not pack and not system_tar():
                         eligible, reason = False, 'Windows標準の展開機能が見つかりません。'
+                elif not windows_x64():
+                    eligible, reason = False, 'NVRTCの自動追加はWindows x64のみです。macOSでは不要です。ドライバーは変更しません。'
                 elif installed:
                     eligible, reason = False, '導入済みです。'
                 elif not self.report or self.diagnosed_engine != str(self.library.hashcat):
@@ -287,7 +365,8 @@ class SetupManager:
                 elif not any('nvidia' in (d['name'] + d['vendor']).lower() for d in self.report['hardware']['devices']):
                     eligible, reason = False, 'NVIDIA GPUを確認できませんでした。'
                 components.append({**{k: item[k] for k in ('name', 'version', 'size', 'license', 'license_url')},
-                                   'id': key, 'installed': installed, 'eligible': eligible, 'reason': reason})
+                                   'id': key, 'installed': installed, 'eligible': eligible, 'reason': reason,
+                                   'delivery': item.get('delivery', 'download')})
             return {'catalog_revision': CATALOG_REVISION, 'guide_seen': seen,
                     'platform': platform.system(), 'automatic_supported': supported,
                     'destination': str(self.root), 'components': components,
@@ -337,7 +416,7 @@ class SetupManager:
             if self.root.is_symlink() or self.root.resolve().parent != self.library.root:
                 raise ValueError('部品の保存先が不正です。')
             self.stop.clear()
-            self.status = {'phase': 'downloading', 'component': key, 'received': 0, 'total': CATALOG[key]['size'], 'message': '導入を開始します。'}
+            self.status = {'phase': 'downloading', 'component': key, 'received': 0, 'total': self.item(key)['size'], 'message': '導入を開始します。'}
             self.thread = threading.Thread(target=self._install, args=(key, time.time()), daemon=True)
             self.thread.start()
 
@@ -354,7 +433,7 @@ class SetupManager:
             self.status.update(fields)
 
     def _install(self, key, accepted_at):
-        item = CATALOG[key]
+        item = self.item(key)
         try:
             target = self.root / item['folder']
             if not self.installed(key):
@@ -365,10 +444,17 @@ class SetupManager:
                 with tempfile.TemporaryDirectory(prefix='.install-', dir=self.root) as folder:
                     stage = Path(folder)
                     archive = stage / 'download.bin'
-                    download_component(item, archive, self.stop, lambda done, total: self._update(received=done, total=total, message='ダウンロード中'))
-                    self._update(phase='verifying', message='SHA-256検証完了')
-                    self._update(phase='extracting', message='必要な部品を展開中')
-                    extracted = unpack_hashcat(archive, stage, self.stop) if key == 'hashcat' else unpack_nvrtc(archive, stage, self.stop)
+                    if item.get('delivery') == 'bundled':
+                        self._update(phase='extracting', message='同梱部品を検証・展開中')
+                        extracted = unpack_native(item, stage, self.stop, lambda done, total: self._update(received=done, total=total))
+                        code, version = run_readonly([str(extracted / 'hashcat'), '--version'], cwd=extracted)
+                        if code or version.strip() != 'v' + item['version']:
+                            raise ValueError('この環境では同梱Hashcatを実行できません。既存のHashcatを手動設定してください。')
+                    else:
+                        download_component(item, archive, self.stop, lambda done, total: self._update(received=done, total=total, message='ダウンロード中'))
+                        self._update(phase='verifying', message='SHA-256検証完了')
+                        self._update(phase='extracting', message='必要な部品を展開中')
+                        extracted = unpack_hashcat(archive, stage, self.stop) if key == 'hashcat' else unpack_nvrtc(archive, stage, self.stop)
                     self._update(phase='configuring', message='設定中')
                     receipt = {k: item[k] for k in ('version', 'sha256', 'url', 'license_url')}
                     receipt.update(component=key, accepted_at=accepted_at, catalog_revision=CATALOG_REVISION)
@@ -379,7 +465,7 @@ class SetupManager:
                         extracted.rename(target)
             with self.library.lock:
                 if key == 'hashcat':
-                    self.library.save_settings({'hashcat': str(target / 'hashcat.exe')}, _setup=True)
+                    self.library.save_settings({'hashcat': str(target / item.get('executable', 'hashcat.exe'))}, _setup=True)
                 self.report = None
                 self.status.update(phase='complete', message='導入済みです。GPU診断で認識状態を確認してください。')
         except Cancelled:

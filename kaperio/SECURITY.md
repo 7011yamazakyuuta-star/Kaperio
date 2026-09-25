@@ -1,6 +1,6 @@
 # Security and Privacy
 
-Kaperio is an alpha local desktop application, not a public file-conversion service.
+Loxmit is an alpha local desktop application, not a public file-conversion service.
 Only open files you own or have explicit permission to recover.
 File ownership and permission are separate from the software license.
 
@@ -40,6 +40,6 @@ File ownership and permission are separate from the software license.
 
 Do not attach real passwords, document hashes or confidential files to public issues.
 Use a synthetic reproduction. Submit sensitive security reports through
-[GitHub private vulnerability reporting](https://github.com/7011yamazakyuuta-star/Kaperio/security/advisories/new).
+[GitHub private vulnerability reporting](https://github.com/7011yamazakyuuta-star/Loxmit/security/advisories/new).
 Private vulnerability reporting is enabled for this repository.
 No independent security audit, malware certification or code-signing is claimed.

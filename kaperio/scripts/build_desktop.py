@@ -65,6 +65,11 @@ def main():
                                ('LICENSE', '.'), ('THIRD_PARTY.md', '.')]:
             command += ['--add-data', str(ROOT / source) + ':' + target]
         command += ['--add-data', str(licenses) + ':licenses/runtime']
+        if sys.platform in ('darwin', 'linux'):
+            from environment_setup import native_pack
+            if native_pack() is None:
+                raise RuntimeError('Build the pinned native engine pack before packaging this platform')
+            command += ['--add-data', str(ROOT / 'component_pack') + ':component_pack']
         if sys.platform in ('win32', 'darwin'):
             icon = 'favicon.ico' if sys.platform == 'win32' else 'icon.icns'
             command += ['--windowed', '--icon', str(ROOT / 'static' / icon)]

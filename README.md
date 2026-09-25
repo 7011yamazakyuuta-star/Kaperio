@@ -1,31 +1,61 @@
 # Loxmit
 
-旧名称はKaperioです。v0.4では、錠前師のピクセルアートアイコンと3カラムの操作画面を採用しました。
-GitHubのリポジトリURLと内部ソースフォルダー名は互換性のため従来のままです。
+![Loxmit icon](kaperio/static/icon-64.png)
 
-自分のファイルのパスワード復元と、解除済みファイルの保存を行うローカルアプリです。
-MITライセンスのオープンソース・アルファ版です。Hashcat公式製品ではありません。
+自分のファイル、または所有者の許可があるファイルのパスワード復元と、解除済みファイルの保存を行うローカルアプリです。原本は変更しません。文書やパスワードを外部サービスへ送信しません。
 
-[GitHub](https://github.com/7011yamazakyuuta-star/Kaperio) /
-[ダウンロード・リリース](https://github.com/7011yamazakyuuta-star/Kaperio/releases)
+**0.4.0-alpha.8** / MITライセンス / 旧名称 Kaperio / Hashcat公式製品ではありません。
 
-- Windows: 配布ZIPを展開し、フォルダー内の `Loxmit.exe` を起動します。`_internal` も必要です。
-- macOS: CPUに合うZIPを展開し `Loxmit.app` を起動します。Apple Silicon版とIntel版は別です。
-- Linux: tar.gzを展開し `Loxmit/Loxmit` を実行します。x86-64、glibc 2.35以降が対象です。
-- 配布バイナリはPython不要です。画面は既定のブラウザーで開きます。
-- ソースから起動する場合はPython 3.12を用意し、Windowsでは `Setup.cmd`、`Loxmit.cmd` の順です。旧ランチャーも利用できます。
-- HashcatとZIP探索用zip2johnは別途公式配布元から用意し、設定画面で指定します。
-- パスワードが分かるファイルの解除にはHashcatは不要です。
-- 原本は変更しません。解除済み文書は暗号化せずローカル保存します。
-- 探索は辞書、マスク、英字大小・末尾数字の変形、辞書＋末尾探索、先頭探索＋辞書、手掛かりからの段階探索の6種類です。
-- PDF R6の大きな混在辞書は長さ別に分割します。任意の負荷測定は温度・繰り返し測定を確認し、不確かな場合は低負荷を維持します。
-- [速度検証](kaperio/docs/PERFORMANCE.md): PDF R6の辞書探索で旧設定比2.58倍を観測。本家の最速設定を超えたという意味ではありません。
+[ダウンロード](https://github.com/7011yamazakyuuta-star/Loxmit/releases) ·
+[使い方・対応形式](kaperio/README.md) ·
+[初回セットアップとGPU診断](kaperio/docs/SETUP.md)
 
-[セットアップと対応範囲](kaperio/README.md) / [ライセンス](LICENSE) /
-[配布手順](kaperio/docs/DISTRIBUTION.md) / [第三者表示](kaperio/THIRD_PARTY.md) /
-[安全性と制限](kaperio/SECURITY.md)
+## はじめる
 
-ストアは使いません。Windowsのコード署名・macOSのDeveloper ID署名と公証は未実施です。
-各OSのビルド・起動テストと、実GPUでの復元性能の確認は区別しています。
-詳細は[デスクトップ配布](kaperio/docs/DESKTOP.md)を参照してください。
-スマホ単体の復元、OCR、本家Hashcatより高速という保証はありません。
+配布ファイルを展開して起動します。Pythonは不要です。画面は既定ブラウザーで開きます。フォルダー内の部品を削除せず、まとめて保管してください。
+
+| OS | 配布ファイル末尾 | 起動 | Hashcatの準備 |
+|---|---|---|---|
+| Windows x64 | `windows-amd64.zip` | `Loxmit.exe` | 同意後、公式配布物を自動ダウンロード |
+| macOS 15以降・Apple Silicon | `darwin-arm64.zip` | `Loxmit.app` | 同意後、同梱部品を自動展開 |
+| macOS 15以降・Intel | `darwin-x86_64.zip` | `Loxmit.app` | 同意後、同梱部品を自動展開 |
+| Linux x86-64 | `linux-x86_64.tar.gz` | `Loxmit/Loxmit` | 同意後、同梱部品を自動展開 |
+
+Linuxの検証対象はUbuntu 22.04、glibc 2.35以降です。macOS／Linuxの自動準備にHomebrew、管理者権限、開発用コンパイラーは不要です。GPUドライバーは導入・更新しません。GPUランタイムの利用可否は環境に依存します。
+
+1. 初回ガイドで必要な部品だけ準備し、GPU診断を実行します。既知パスワードで開く場合はHashcat不要です。
+2. 自分のファイルを追加し、「パスワードを探す」または「パスワードが分かる」を選びます。
+3. 復元されたパスワードをコピーするか、パスワードなしの文書を書き出します。
+
+初期状態は空のライブラリーです。デモファイルは入りません。終了は右上の電源ボタンから行います。
+
+## できること
+
+- PDF・Excel・PowerPoint・Word・ZIPの対応する暗号形式の復元と解除。ZIP探索には別途 `zip2john` が必要です。
+- おまかせ探索で、覚えている単語・文字数・文字種から候補を作成。「覚えていない」回答にも対応します。
+- 詳細指定では辞書、マスク、変形、辞書とマスクの組合せ、段階探索に対応します。
+- 16文字超の候補にも対応。形式ごとのUTF-8バイト上限と候補数上限があります。
+- 1ファイル200 MiBまで取り込み。解除済みの元形式・画像PDF・画像Word・PNG・既存テキストを保存できます。変換対象は形式によります。
+- チュートリアル、GPU診断、一時停止・再開、温度と時間の上限、結果のコピー。
+
+復元の成功や、本家Hashcatより高速という保証はありません。[速度検証の条件と限界](kaperio/docs/PERFORMANCE.md)を公開しています。画像Wordは編集可能なOCR文書ではありません。Officeの画像化にはOfficeまたはLibreOfficeが別途必要です。
+
+## 配布と検証
+
+ストアは使わずGitHub Releasesで配布します。Windowsのコード署名、macOSのDeveloper ID署名・公証は未実施です。OSの警告が出る場合がありますが、セキュリティ機能を一括無効化しないでください。
+
+GitHub Actionsでは4種類のネイティブアプリをビルドし、起動・復号・変換をテストします。macOS／Linuxでは同梱Hashcatの同意付き展開、バージョン照会、8種類の形式モジュール読込も検証します。**ビルド・起動成功と実GPUでの復元性能は別の確認です。** 結果は各リリースと[Actions](https://github.com/7011yamazakyuuta-star/Loxmit/actions/workflows/desktop.yml)で確認できます。
+
+スマホ向けはPCを処理担当にするHTTPS遠隔操作の基盤のみです。iOS／Android単体の復元アプリや、ワンクリック接続は未提供です。
+
+## 開発と安全性
+
+ソース版はPython 3.12以降が必要です。Windowsでは `Setup.cmd` → `Loxmit.cmd`、macOS／Linuxでは `kaperio/setup.sh` → `kaperio/launch.sh` を使います。ソース版のネイティブHashcat部品は別途ビルドまたは手動設定します。
+
+内部の `kaperio/` フォルダー、旧ランチャー、旧環境変数・保存場所には互換性を残しています。GitHubのリポジトリ名と公開製品名は **Loxmit** です。既存の個人データを勝手に移動・削除しません。
+
+解除済み文書は暗号化されていません。保存先を適切に管理してください。パスワードの画面表示は一時的で、アプリ再起動時に消えます。
+
+[ライセンス](LICENSE) · [第三者表示](kaperio/THIRD_PARTY.md) ·
+[安全性](kaperio/SECURITY.md) · [配布・検証の詳細](kaperio/docs/DESKTOP.md) ·
+[ソース配布手順](kaperio/docs/DISTRIBUTION.md)
