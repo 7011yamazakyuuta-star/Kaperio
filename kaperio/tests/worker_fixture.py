@@ -3,12 +3,21 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
 request = json.load(sys.stdin)
 root = Path(request['work'])
 mode = sys.argv[1]
+if mode == 'private_temp':
+    with tempfile.TemporaryDirectory() as directory:
+        nested = Path(directory)
+        (nested / 'synthetic-secret').write_text('private fixture')
+        Path('relative-output').write_text('private fixture')
+        private = nested.is_relative_to(root) and Path.cwd() == root
+        (root / 'result.json').write_text(json.dumps({'ok': True, 'result': {'private': private}}))
+    sys.exit(0)
 if mode == 'os_limit':
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from document_limits import apply_limits

@@ -1,4 +1,4 @@
-# Loxmit Desktop 0.4.0-alpha.9
+# Loxmit Desktop 0.4.0-alpha.10
 
 Document operations now use disposable, resource-limited workers. See
 [hardening boundaries](HARDENING.md); earlier native validation is not a result

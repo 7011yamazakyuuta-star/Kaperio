@@ -4,6 +4,7 @@
 /.agents/
 /.codex/
 **/.venv/
+**/.audit-venv/
 **/.test-data/
 **/.tmp/
 **/__pycache__/
