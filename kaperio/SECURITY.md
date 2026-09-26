@@ -12,7 +12,9 @@ File ownership and permission are separate from the software license.
   listed in [DESKTOP.md](docs/DESKTOP.md). New Unix data directories use mode 0700.
 - Candidate lists and masks can contain sensitive password information.
 - Recovered passwords are kept in process memory; a temporary Hashcat result
-  file is removed after reading. An abrupt process/machine failure may leave it.
+  file is removed after reading, invalid-result errors and ordinary process failures.
+  Reads are bounded to 64 KiB and validation errors do not echo result contents.
+  An abrupt process/machine failure may still leave it.
 - Data is NOT encrypted at rest. Protect the operating-system account and disk.
 - Library deletion removes work copies/exports, not the original imported file.
   It is not secure erasure and does not remove browser downloads, backups or caches.
@@ -49,10 +51,26 @@ File ownership and permission are separate from the software license.
   4 GiB address-space cap. macOS uses RSS polling, not a hard OS memory cap.
 - Private temporary outputs are committed only after successful worker completion.
   Passwords are sent over an anonymous pipe, not command-line arguments or request files.
+- Document workers and their helpers use a private working/temp directory. Nested
+  temporary output is monitored with a 1 GiB aggregate / 10,000-entry limit; links
+  and special files are rejected. These are polling safeguards, not a disk quota
+  or a filesystem sandbox. Files written to other absolute paths are not covered.
 - HTTP accepts at most 32 concurrent connections. TLS handshakes run off the
   accept loop with a 5-second timeout; HTTP socket inactivity expires at 30 seconds.
   These are local-app safeguards, not a public-service security certification.
 - See [hardening scope and limitations](docs/HARDENING.md).
+
+## Dependency checks
+
+Each native CI build audits its installed, declared Python runtime dependencies
+against PyPI advisories with pip-audit in a separate tool environment. Missing
+inventory entries, incompatible declared dependencies, skipped/incomplete audit
+results, service failures and known vulnerabilities fail the build. Audit records
+contain public package names and versions, not user files or passwords.
+
+This does not scan bundled PDFium/OpenSSL, Python itself, Hashcat, CUDA, GPU
+drivers, Office, the OS, or unknown vulnerabilities. It is not malware detection
+or a complete supply-chain audit. See [audit scope](docs/PRIVACY_AUDIT.md).
 
 ## Reporting
 

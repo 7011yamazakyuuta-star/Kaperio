@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0-alpha.9",
+  "version": "0.4.0-alpha.10",
   "files": [
     ".gitignore", "LICENSE", "README.md", "Setup.cmd", "Kaperio.cmd", "Loxmit.cmd",
     ".github/workflows/desktop.yml",
@@ -7,6 +7,8 @@
     "kaperio/app.py", "kaperio/formats.py", "kaperio/pdf_tools.py", "kaperio/recovery.py", "kaperio/converter.py", "kaperio/candidates.py",
     "kaperio/document_worker.py", "kaperio/document_limits.py", "kaperio/local_server.py",
     "kaperio/tests/test_hardening.py", "kaperio/tests/worker_fixture.py", "kaperio/docs/HARDENING.md",
+    "kaperio/tests/test_privacy.py", "kaperio/tests/test_dependency_audit.py", "kaperio/scripts/audit_dependencies.py",
+    "kaperio/docs/PRIVACY_AUDIT.md",
     "kaperio/desktop.py", "kaperio/runtime.py", "kaperio/environment_setup.py", "kaperio/scripts/build_desktop.py", "kaperio/scripts/build_engine_pack.py", "kaperio/scripts/build_icons.py",
     "kaperio/office_render.ps1", "kaperio/launch.ps1", "kaperio/launch.sh", "kaperio/setup.ps1", "kaperio/setup.sh",
     "kaperio/requirements.txt", "kaperio/requirements-dev.txt", "kaperio/requirements-tested.txt",

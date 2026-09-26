@@ -239,6 +239,32 @@ def hashcat_arguments(executable, folder, mode, plan, resume=False):
 
 
 def run_stage(executable, folder, mode, plan, stop, update, resume=False, seconds=None):
+    found = folder / 'found.hex'
+    try:
+        return _run_stage(executable, folder, mode, plan, stop, update, resume, seconds)
+    finally:
+        # Never retain a plaintext-equivalent result after an ordinary failure.
+        found.unlink(missing_ok=True)
+
+
+def read_password_result(path):
+    try:
+        with path.open('rb') as stream:
+            raw = stream.read(65537)
+    except FileNotFoundError:
+        return None
+    if len(raw) > 65536:
+        raise ValueError('Password result exceeds the size limit.')
+    lines = raw.splitlines()
+    if not lines:
+        return None
+    try:
+        return bytes.fromhex(lines[0].decode('ascii'))
+    except (UnicodeDecodeError, ValueError):
+        raise ValueError('Password result is invalid.') from None
+
+
+def _run_stage(executable, folder, mode, plan, stop, update, resume=False, seconds=None):
     restore = folder / 'session.restore'
     if stop.is_set() or (seconds is not None and seconds <= 0):
         return {'state': 'paused', 'reason': 'pause' if stop.is_set() else 'time_limit',
@@ -288,12 +314,7 @@ def run_stage(executable, folder, mode, plan, stop, update, resume=False, second
             process.wait()
         reader.join(timeout=5)
         process.stdout.close()
-    password = None
-    if found.exists():
-        lines = found.read_text(encoding='ascii').splitlines()
-        if lines:
-            password = bytes.fromhex(lines[0])
-        found.unlink(missing_ok=True)
+    password = read_password_result(found)
     if password is not None:
         return {'state': 'found', 'password': password}
     if length_limits:

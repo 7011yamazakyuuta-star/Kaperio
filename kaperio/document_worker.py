@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,33 @@ RESULT_LIMIT = 16 * 1024**2
 REQUEST_LIMIT = 64 * 1024
 TASK_TIMEOUT = 120
 EXPORT_TIMEOUT = 300
+
+
+def check_workspace(work, limit=OUTPUT_LIMIT, max_entries=10000):
+    pending, size, count = [work], 0, 0
+    while pending:
+        try:
+            with os.scandir(pending.pop()) as entries:
+                for entry in entries:
+                    count += 1
+                    if count > max_entries:
+                        raise ValueError('Temporary file count exceeds the limit.')
+                    try:
+                        info = entry.stat(follow_symlinks=False)
+                    except FileNotFoundError:
+                        continue
+                    if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+                        raise ValueError('Temporary file links are not supported.')
+                    if stat.S_ISDIR(info.st_mode):
+                        pending.append(entry.path)
+                    elif stat.S_ISREG(info.st_mode):
+                        size += info.st_size
+                    else:
+                        raise ValueError('Unexpected temporary file type.')
+                    if size > limit:
+                        raise ValueError('Temporary output exceeds the size limit.')
+        except FileNotFoundError:
+            continue
 
 
 def write_json(path, value):
@@ -53,6 +81,10 @@ def worker_main():
     work = Path(request['work'])
     try:
         apply_limits(request['memory'], request['timeout'], OUTPUT_LIMIT)
+        # Native helpers and Python libraries share the supervised private workspace.
+        tempfile.tempdir = str(work)
+        for name in ('TMP', 'TEMP', 'TMPDIR'):
+            os.environ[name] = str(work)
         from formats import inspect_file, unlock_file, contents, get_hash
         from pdf_tools import preview_png, export_pdf
         operation, args = request['operation'], request['args']
@@ -149,9 +181,12 @@ class DocumentWorker:
                 if len(request) > REQUEST_LIMIT:
                     raise ValueError('文書処理の入力が上限を超えています。')
                 flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                env = os.environ.copy()
+                env.update({name: str(work) for name in ('TMP', 'TEMP', 'TMPDIR')})
                 process = subprocess.Popen(worker_command(), stdin=subprocess.PIPE,
                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                           creationflags=flags, start_new_session=os.name != 'nt')
+                                           creationflags=flags, start_new_session=os.name != 'nt',
+                                           cwd=work, env=env)
                 children, last_progress = [], None
                 def send_request():
                     try:
@@ -179,13 +214,7 @@ class DocumentWorker:
                                 raise ValueError('文書処理がメモリー上限に達しました。')
                         except psutil.NoSuchProcess:
                             pass
-                        for path in work.iterdir():
-                            try:
-                                size = path.stat().st_size
-                            except FileNotFoundError:
-                                continue
-                            if size > OUTPUT_LIMIT:
-                                raise ValueError('書き出しサイズが上限（1GB）を超えました。')
+                        check_workspace(work)
                         if progress and (work / 'progress.json').exists():
                             current = read_json(work / 'progress.json')
                             if current != last_progress:
@@ -193,6 +222,7 @@ class DocumentWorker:
                                 last_progress = current
                         time.sleep(.05)
                     check()
+                    check_workspace(work)
                     if process.returncode or not (work / 'result.json').exists():
                         raise ValueError('文書処理が終了しました。破損、または処理上限超過の可能性があります。')
                     result = read_json(work / 'result.json')
