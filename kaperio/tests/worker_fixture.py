@@ -15,7 +15,8 @@ if mode == 'private_temp':
         nested = Path(directory)
         (nested / 'synthetic-secret').write_text('private fixture')
         Path('relative-output').write_text('private fixture')
-        private = nested.is_relative_to(root) and Path.cwd() == root
+        # macOS /var and /private/var can name the same directory.
+        private = nested.resolve().is_relative_to(root.resolve()) and Path.cwd().samefile(root)
         (root / 'result.json').write_text(json.dumps({'ok': True, 'result': {'private': private}}))
     sys.exit(0)
 if mode == 'os_limit':
